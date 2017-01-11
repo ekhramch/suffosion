@@ -73,7 +73,47 @@ double get_nu(double i, double j, vector<point> boreholes)
     return (sum ? sum : 1.);
 }
 
-int get_q(vector<double> &pressure, vec_3d &velocity, vector<double> &permeability, vector<point> boreholes)
+int conc_calc(vector<double> &concentration, vector<double> porosity,
+        vector<double> source, vec_3d &velocity,
+        vector<point> boreholes, int time)
+{
+    for(auto index = 0; index < n; ++index)
+    {
+        auto k = index / ( n_x * n_y );
+        auto tmp_loc = index - ( k * n_x * n_y );
+        auto j = tmp_loc / n_x;
+        auto i = tmp_loc - ( j * n_x );
+        double tmp = 0.;
+
+        if( i > 0 && i < n_x - 1 )
+            tmp += velocity.x[index] * 
+                ( ( velocity.x[index] > 0 )
+                  ? ( concentration[index] - concentration[index - h_i] ) 
+                  : ( concentration[index + h_i] - concentration[index] ) 
+                );
+
+        if( j > 0 && j < n_y - 1 )
+            tmp += velocity.y[index] * 
+                ( ( velocity.y[index] > 0 )
+                  ? ( concentration[index] - concentration[index - h_j] ) 
+                  : ( concentration[index + h_j] - concentration[index] ) 
+                );
+
+        if( k > 0 && k < n_z - 1 )
+            tmp += velocity.z[index] * 
+                ( ( velocity.z[index] > 0 )
+                  ? ( concentration[index] - concentration[index - h_k] ) 
+                  : ( concentration[index + h_k] - concentration[index] ) 
+                );
+
+        concentration[index] += ( h_t * 0.5 * time / porosity[index] ) * 
+            ( -source[index] - tmp / ( length * h ) ) ;
+    }
+    return 0;
+}
+
+int get_q(vector<double> &pressure, 
+        vec_3d &velocity, vector<double> &permeability, vector<point> boreholes)
 {
     for(auto index = 0; index < n; ++index)
     {
@@ -82,68 +122,54 @@ int get_q(vector<double> &pressure, vec_3d &velocity, vector<double> &permeabili
         auto j = tmp_loc / n_x;
         auto i = tmp_loc - (j * n_x);
 
-        if ((i == 0) || (i == n_x))
+        if ((i == 0) || (i == n_x - 1))
             velocity.x[index] = 0.;
         else
         {
             if (pressure[index] > pressure[index - 1])
-                velocity.x[index] = (pressure[index + 1] - pressure[index]) / h;
+                velocity.x[index] = (pressure[index + 1] - pressure[index]) / lame_1;
             else
-                velocity.x[index] = (pressure[index] - pressure[index - 1]) / h;
+                velocity.x[index] = (pressure[index] - pressure[index - 1]) / lame_1;
         }
 
-        if ((j == 0) || (j == n_y))
+        if ((j == 0) || (j == n_y - 1))
             velocity.y[index] = 0.;
         else
         {
             if (pressure[index] > pressure[index - n_x])
-                velocity.y[index] = (pressure[index + n_x] - pressure[index]) / h;
+                velocity.y[index] = (pressure[index + n_x] - pressure[index]) / lame_1;
             else
-                velocity.y[index] = (pressure[index] - pressure[index - n_x]) / h;
+                velocity.y[index] = (pressure[index] - pressure[index - n_x]) / lame_1;
         }
 
-        if ((k == 0) || (k == n_z))
+        if ((k == 0) || (k == n_z - 1))
             velocity.z[index] = 0.;
         else
         {
             if (pressure[index] > pressure[index - n_x*n_y])
-                velocity.z[index] = (pressure[index + n_x*n_y] - pressure[index]) / h;
+                velocity.z[index] = (pressure[index + n_x*n_y] - pressure[index]) / lame_1;
             else
-                velocity.z[index] = (pressure[index] - pressure[index - n_x*n_y]) / h;
+                velocity.z[index] = (pressure[index] - pressure[index - n_x*n_y]) / lame_1;
         }
 
-        velocity.x[index] *= -permeability[index] / length;
-        velocity.y[index] *= -permeability[index] / length;
-        velocity.z[index] *= -permeability[index] / length;
+        if( fabs(velocity.x[index] < 1e-6) )
+        	velocity.x[index] = 0.;
+        else
+        	velocity.x[index] *= ( -permeability[index] * lame_1 ) / ( h * length );
+        
+        if( fabs(velocity.y[index] < 1e-6) )
+        	velocity.y[index] = 0.;
+        else
+        	velocity.y[index] *= ( -permeability[index] * lame_1 ) / ( h * length );
+        
+        if( fabs(velocity.z[index] < 1e-6) )
+        	velocity.z[index] = 0.;
+        else
+        	velocity.z[index] *= ( -permeability[index] * lame_1 ) / ( h * length );
     }
 
     return 0;
 }
-
-int set_bc(vector<double> &q)
-{
-
-    for(int k=0, n=1; k<n_z; k+=n_z-1, n-=2)
-#pragma omp parallel for
-        for(int j = 0; j < n_y; ++j)
-            for (int i = 0; i < n_x; ++i)
-                q[i + j*n_x + k*n_x*n_y] = q[i + j*n_x + (k+n)*n_x*n_y];
-
-    for(int j=0, n=1; j<n_y; j+=n_y-1, n-=2)
-#pragma omp parallel for
-        for(int k = 1; k < n_z-1; ++k)
-            for (int i = 0; i < n_x; ++i)
-                q[i + j*n_x + k*n_x*n_y] = q[i + (j+n)*n_x + k*n_x*n_y];
-
-
-    for(int i=0, n=1; i<n_x; i+=n_x-1, n-=2)
-#pragma omp parallel for
-        for(int k = 1; k < n_z-1; ++k)
-            for(int j = 1; j < n_y-1; ++j)
-                q[i + j*n_x + k*n_x*n_y] = q[(i+n) + j*n_x + k*n_x*n_y];
-    return 0;
-}
-
 
 int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr, 
         vector<double> &rhs, vector<double> &permeability, vector<point> &boreholes)
@@ -172,53 +198,54 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
         auto i_f = -undim * get_nu(double(i + 0.5), double(j), boreholes)*( permeability[index] + permeability[index + 1] )/2.;
         auto i_b = -undim * get_nu(double(i - 0.5), double(j), boreholes)*( permeability[index] + permeability[index - 1] )/2.;
         auto cntr = -(k_f + k_b + j_f + j_b + i_f + i_b);
-
-        if(k==0)
-        {
-            k_f = k_b = j_f = j_b = i_f = i_b = 0;
-            cntr = 1.;
-            rhs[index] = p_up;
-        }
-
-        if(k==n_z-1)
-        {
-            k_f = k_b = j_f = j_b = i_f = i_b = 0;
-            cntr = 1.;
-            rhs[index] = p_bot;
-        }
-
-        if( (j==0) && j_b )
-        {
-            j_f *= 2;
-            j_b = 0;
-        }
-
-        if( (j==n_y-1) && j_f )
-        {
-            j_f = 0;
-            j_b *= 2;
-        }
-
-        if( (i==0) && i_b )
-        {
-            i_f *= 2;
-            i_b = 0;
-        }
-
-        if( (i==n_x-1) && i_f )
-        {
-            i_f = 0;
-            i_b *= 2;
-        }
-
+ 
         if(is_bh)
         {
             k_f = k_b = j_f = j_b = i_f = i_b = 0;
             cntr = 1.;
             rhs[index] = p_bh;
         }
+       
+        if( (k == 0) && (!is_bh) )
+        {
+            k_f = k_b = j_f = j_b = i_f = i_b = 0;
+            cntr = 1.;
+            rhs[index] = p_up;            
+        }
 
-        if(k_b)
+        if( (k == n_z - 1) && (!is_bh) )
+        {
+            k_f = k_b = j_f = j_b = i_f = i_b = 0;
+            cntr = 1.;
+            rhs[index] = p_bot;    
+        }
+
+        if( (j == 0) && (j_b != 0 ) )
+        {
+            j_f *= 2.;
+            j_b = 0;
+        }
+
+        if( (j == n_y - 1)  && (j_f != 0) )
+        {
+            j_f = 0;
+            j_b *= 2.;
+        }
+
+        if( (i == 0) && (i_b != 0) )
+        {
+            i_f *= 2.;
+            i_b = 0;
+        }
+
+        if( (i == n_x - 1) && (i_f != 0) )
+        {
+            i_f = 0;
+            i_b *= 2.;
+        }
+
+
+        if(k_b != 0)
         {
             val.push_back(k_b);
             col.push_back(index - n_x*n_y);
@@ -297,24 +324,11 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
     return 0;
 }
 
-int build_u_mat(vector<int> &col, vector<double> &val, vector<int> &ptr, char dir)
+int build_u_mat(vector<int> &col,vector<double> &val,vector<int> &ptr, char dir)
 {
-    double d_x = -1., d_y = -1., d_z = -1.;
-
-    switch(dir)
-    {    
-        case 'x':
-            d_x = -2 - lame_1/lame_2;
-            break;
-        case 'y':
-            d_y = -2 - lame_1/lame_2;
-            break;
-        case 'z':
-            d_z = -2 - lame_1/lame_2;
-            break;
-        default:
-            return -1;
-    }
+    double d_x = ( dir == 'x' ? -2 - lame_1/lame_2 : -1. );
+    double d_y = ( dir == 'y' ? -2 - lame_1/lame_2 : -1. );
+    double d_z = ( dir == 'z' ? -2 - lame_1/lame_2 : -1. );
 
     ptr.push_back(0);
 
@@ -326,39 +340,40 @@ int build_u_mat(vector<int> &col, vector<double> &val, vector<int> &ptr, char di
         auto j = tmp_loc/n_x;
         auto i = tmp_loc - j*n_x;
 
+        bool is_border = 
+            (k == 0) || (k == n_z - 1) || (j == 0) || 
+            (j == n_y - 1) || (i == 0) || (i ==  n_x - 1); 
 
-        if ( ( k > 0 && k < ( n_z - 1 ) ) && ( j > 0 && ( j < n_y - 1 ) ) && ( i > 0 && i< ( n_x - 1 ) ) )
+if (is_border)
+        {
+            val.push_back(1.);
+            col.push_back(index);
+        }
+        else
         {
             val.push_back(d_z);
-            col.push_back(index - n_x*n_y);
+            col.push_back(index - h_k);
 
             val.push_back(d_y);
-            col.push_back(index - n_x);
+            col.push_back(index - h_j);
 
             val.push_back(d_x);
-            col.push_back(index - 1);
+            col.push_back(index - h_i);
 
             val.push_back(8. + 2.*lame_1/lame_2);
             col.push_back(index);
 
             val.push_back(d_x);
-            col.push_back(index + 1);
+            col.push_back(index + h_i);
 
             val.push_back(d_y);
-            col.push_back(index + n_x);
+            col.push_back(index + h_j);
 
             val.push_back(d_z);
-            col.push_back(index + n_x*n_y);
+            col.push_back(index + h_k);
         }
-        else
-        {
-            val.push_back(1.);
-            col.push_back(index);
-        }
-
         ptr.push_back(col.size());
     }
-
     return 0;
 }
 
@@ -393,36 +408,40 @@ int drawLine(int x1, int y1, int x2, int y2, int z, std::vector<double> &matrix)
             y1 += signY;
         }
     }
-
     return 0;
 }
 
 //mixed second order derivative; direction is determined by dir
-double sec_ord_mx(vector<double> &u, int i, int j, int k, const int dir)
+double sec_ord_mx(vector<double> &u, int index, const string &dir)
 {
-    double tmp=0.;
-    auto index = i + j*n_x + k*n_x*n_y;
-
-    //-45 for dxdy; 45 for dxdz; 135 for dydz
-
-    switch(dir)
-    {    
-        case -45:
-            //tmp = u[index + n_x] - u[index - 1 + n_x] - u[index] + u[index - 1];
-            tmp = u[index + 1 + n_x] - u[index + 1 - n_x] - u[index - 1 + n_x] + u[index - 1 - n_x];
-            break;
-        case 45:
-            //tmp = u[index + n_x*n_y] - u[index - 1 + n_x*n_y] - u[index] + u[index - 1];
-            tmp = u[index + 1 + n_x*n_y] - u[index + 1 - n_x*n_y] - u[index - 1 + n_x*n_y] + u[index - 1 - n_x*n_y];
-            break;
-        case 135:
-            //tmp = u[index + n_x*n_y] - u[index - n_x + n_x*n_y] - u[index] + u[index - n_x];
-            tmp = u[index + n_x + n_x*n_y] - u[index + n_x - n_x*n_y] - u[index - n_x + n_x*n_y] + u[index - n_x - n_x*n_y];
-            break;
-        default:
-            return -1;
+    if(dir == "xy" || dir == "yx")
+    {
+        double tmp = u[index + h_j] - u[index - h_i + h_j] 
+            - u[index] + u[index - h_i];
+        return tmp * (lame_1 / lame_2 + 1.);
     }
-
-    return tmp/(4. * h * h);
+    else if(dir == "xz" || dir == "zx")
+    {
+        double tmp = u[index + h_k] - u[index - h_i + h_k] 
+            - u[index] + u[index - h_i];
+        return tmp * (lame_1 / lame_2 + 1.);
+    }
+    else if(dir == "zy" || dir == "yz")
+    {
+        double tmp = u[index + h_k] - u[index - h_j + h_k] 
+            - u[index] + u[index - h_j];
+        return tmp * (lame_1 / lame_2 + 1.);
+    }
+    else
+        return -1;
 }
+
+int check_disp(vector<double> &u)
+{
+    for(auto index = 0; index < n; ++index)
+        if( fabs(u[index]) < 1e-6 )
+            u[index] = 0.;
+    return 0;
+}
+
 
