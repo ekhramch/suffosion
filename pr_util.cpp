@@ -176,18 +176,18 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
 {
     ptr.push_back(0);
 
+    char border_flag[3] = {0, 0, 0};
+
     //Build matrix
     for(auto index = 0; index < n; ++index)
     {
-        auto k_f = -get_press_coef( index, permeability, wells, "zf" );
-        auto k_b = -get_press_coef( index, permeability, wells, "zb" );
-        auto j_f = -get_press_coef( index, permeability, wells, "yb" );
-        auto j_b = -get_press_coef( index, permeability, wells, "yf" );
-        auto i_f = -get_press_coef( index, permeability, wells, "xf" );
-        auto i_b = -get_press_coef( index, permeability, wells, "xb" );
+        auto k_f = get_press_coef( index, permeability, wells, "zf" );
+        auto k_b = get_press_coef( index, permeability, wells, "zb" );
+        auto j_f = get_press_coef( index, permeability, wells, "yb" );
+        auto j_b = get_press_coef( index, permeability, wells, "yf" );
+        auto i_f = get_press_coef( index, permeability, wells, "xf" );
+        auto i_b = get_press_coef( index, permeability, wells, "xb" );
         auto cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
-
-        char border_flag[3] = {0, 0, 0};
 
         if(is_well(index, wells))
         {
@@ -436,7 +436,7 @@ double get_press_coef(int index, vector<double> &permeability,
         default: return -1.;
     }
 
-    return tmp;
+    return -tmp;
 }
 
 bool is_border(int index, char *flag)

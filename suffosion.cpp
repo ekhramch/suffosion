@@ -111,17 +111,23 @@ int main(int argc, char *argv[])
     get_q(pressure, velocity, permeability, boreholes);
     prof.toc("solve press matrix");
 
+    prof.tic("build u_x matrix");
     build_u_mat(col_u, val_u, ptr_u, 'x');
     Solver solve_ux( boost::tie(n, ptr_u, col_u, val_u) );
     col_u.clear();  ptr_u.clear(); val_u.clear();
+    prof.toc("build u_x matrix");
 
+    prof.tic("build u_y matrix");
     build_u_mat(col_u, val_u, ptr_u, 'y');
     Solver solve_uy( boost::tie(n, ptr_u, col_u, val_u) );
     col_u.clear();  ptr_u.clear(); val_u.clear();
+    prof.toc("build u_y matrix");
 
+    prof.tic("build u_z matrix");
     build_u_mat(col_u, val_u, ptr_u, 'z');
     Solver solve_uz( boost::tie(n, ptr_u, col_u, val_u) );
     col_u.clear();  ptr_u.clear(); val_u.clear();
+    prof.toc("build u_z matrix");
 
     prof.tic("time cycle");
     for(auto t = 0; t < 0; ++t)
