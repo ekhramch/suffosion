@@ -50,11 +50,11 @@ int wrt_vtk(vector<double> &arr, const string filename)
     return 0;
 }
 
-double get_nu(double i, double j, vector<point> boreholes)
+double get_nu(double i, double j, vector<point> wells)
 {
     auto sum = 0.;
 
-    for(auto& bh : boreholes)
+    for(auto& bh : wells)
     {
         auto i_b = bh.x;
         auto j_b = bh.y;
@@ -75,7 +75,7 @@ double get_nu(double i, double j, vector<point> boreholes)
 
 int conc_calc(vector<double> &concentration, vector<double> porosity,
         vector<double> source, vec_3d &velocity,
-        vector<point> boreholes, int time)
+        vector<point> wells, int time)
 {
     for(auto index = 0; index < n; ++index)
     {
@@ -113,7 +113,7 @@ int conc_calc(vector<double> &concentration, vector<double> porosity,
 }
 
 int get_q(vector<double> &pressure, 
-        vec_3d &velocity, vector<double> &permeability, vector<point> boreholes)
+        vec_3d &velocity, vector<double> &permeability, vector<point> wells)
 {
     for(auto index = 0; index < n; ++index)
     {
@@ -172,91 +172,62 @@ int get_q(vector<double> &pressure,
 }
 
 int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr, 
-        vector<double> &rhs, vector<double> &permeability, vector<point> &boreholes)
+        vector<double> &rhs, vector<double> &permeability, vector<point> &wells)
 {
-
     ptr.push_back(0);
 
     //Build matrix
-    for(auto index=0; index < n; ++index)
+    for(auto index = 0; index < n; ++index)
     {
-        auto k = index/(n_x*n_y);
-        auto tmp_loc = index - k*n_x*n_y;
-        auto j = tmp_loc/n_x;
-        auto i = tmp_loc - j*n_x;
+        auto k_f = -get_press_coef( index, permeability, wells, "zf" );
+        auto k_b = -get_press_coef( index, permeability, wells, "zb" );
+        auto j_f = -get_press_coef( index, permeability, wells, "yb" );
+        auto j_b = -get_press_coef( index, permeability, wells, "yf" );
+        auto i_f = -get_press_coef( index, permeability, wells, "xf" );
+        auto i_b = -get_press_coef( index, permeability, wells, "xb" );
+        auto cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
 
-        point tmp_bh(i,j);
-        bool is_bh = ( (!boreholes.empty()) && (find(boreholes.begin(), boreholes.end(), tmp_bh) != boreholes.end()) );
+        char border_flag[3] = {0, 0, 0};
 
-        auto undim = hour / (length * length); //undimensional coeff for d_2_p/d_xi_2, pressure still in pascals
-
-
-        auto k_f = -undim * ( permeability[index] + permeability[index - n_x*n_y] )/2.;
-        auto k_b = -undim * ( permeability[index] + permeability[index + n_x*n_y] )/2.;
-        auto j_f = -undim * get_nu(double(i), double(j + 0.5), boreholes)*( permeability[index] + permeability[index + n_x] )/2.;
-        auto j_b = -undim * get_nu(double(i), double(j - 0.5), boreholes)*( permeability[index] + permeability[index - n_x] )/2.;
-        auto i_f = -undim * get_nu(double(i + 0.5), double(j), boreholes)*( permeability[index] + permeability[index + 1] )/2.;
-        auto i_b = -undim * get_nu(double(i - 0.5), double(j), boreholes)*( permeability[index] + permeability[index - 1] )/2.;
-        auto cntr = -(k_f + k_b + j_f + j_b + i_f + i_b);
- 
-        if(is_bh)
+        if(is_well(index, wells))
         {
             k_f = k_b = j_f = j_b = i_f = i_b = 0;
             cntr = 1.;
             rhs[index] = p_bh;
         }
-       
-        if( (k == 0) && (!is_bh) )
+
+        if(is_border(index, border_flag))
         {
-            k_f = k_b = j_f = j_b = i_f = i_b = 0;
-            cntr = 1.;
-            rhs[index] = p_up;            
+            if(border_flag[0])
+            {
+                k_f = k_b = j_f = j_b = i_f = i_b = 0;
+                cntr = 1.;
+                rhs[index] = (border_flag[0] == 't' ? p_top : p_bot);
+            }
+            else
+            {
+                if(border_flag[1])
+                {
+                    j_f = (border_flag[1] == 's' ? 2.*j_f : 0);
+                    j_b = (border_flag[1] == 'n' ? 2.*j_b : 0);
+                }
+                if(border_flag[2])
+                {
+                    i_f = (border_flag[2] == 'w' ? 2.*i_f : 0);
+                    i_b = (border_flag[2] == 'e' ? 2.*i_b : 0);
+                }
+            }
         }
-
-        if( (k == n_z - 1) && (!is_bh) )
-        {
-            k_f = k_b = j_f = j_b = i_f = i_b = 0;
-            cntr = 1.;
-            rhs[index] = p_bot;    
-        }
-
-        if( (j == 0) && (j_b != 0 ) )
-        {
-            j_f *= 2.;
-            j_b = 0;
-        }
-
-        if( (j == n_y - 1)  && (j_f != 0) )
-        {
-            j_f = 0;
-            j_b *= 2.;
-        }
-
-        if( (i == 0) && (i_b != 0) )
-        {
-            i_f *= 2.;
-            i_b = 0;
-        }
-
-        if( (i == n_x - 1) && (i_f != 0) )
-        {
-            i_f = 0;
-            i_b *= 2.;
-        }
-
-
-        if(k_b != 0)
+        
+        if(k_b)
         {
             val.push_back(k_b);
             col.push_back(index - n_x*n_y);
         }
 
-        tmp_bh.y = j - 1;
-        is_bh = ( (!boreholes.empty()) && (find(boreholes.begin(), boreholes.end(), tmp_bh) != boreholes.end()) );
-
         if(j_b)
         {
-            if(is_bh)
+            if(is_well(index - n_x, wells))
                 rhs[index] -= j_b*p_bh;
             else
             {
@@ -265,13 +236,9 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
             }
         }
 
-        tmp_bh.y = j;
-        tmp_bh.x = i - 1;
-        is_bh = ( (!boreholes.empty()) && (find(boreholes.begin(), boreholes.end(), tmp_bh) != boreholes.end()) );
-
         if(i_b)
         {
-            if(is_bh)
+            if(is_well(index - 1, wells))
                 rhs[index] -= i_b*p_bh;
             else
             {
@@ -283,12 +250,9 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
         val.push_back(cntr);
         col.push_back(index);
 
-        tmp_bh.x = i + 1;
-        is_bh = ( (!boreholes.empty()) && (find(boreholes.begin(), boreholes.end(), tmp_bh) != boreholes.end()) );
-
         if(i_f)
-        {        
-            if(is_bh)
+        {
+            if(is_well(index + 1, wells))
                 rhs[index] -= i_f*p_bh;
             else
             {
@@ -297,13 +261,9 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
             }
         }
 
-        tmp_bh.y = j + 1;
-        tmp_bh.x = i;
-        is_bh = ( (!boreholes.empty()) && (find(boreholes.begin(), boreholes.end(), tmp_bh) != boreholes.end()) );
-
         if(j_f)
-        {            
-            if(is_bh)
+        {
+            if(is_well(index + n_x, wells))
                 rhs[index] -= j_f*p_bh;
             else
             {
@@ -315,7 +275,7 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
         if(k_f)
         {
             val.push_back(k_f);
-            col.push_back(index + n_x*n_y);
+            col.push_back(index + n_x*n_y);  
         }
 
         ptr.push_back(col.size());
@@ -329,22 +289,15 @@ int build_u_mat(vector<int> &col,vector<double> &val,vector<int> &ptr, char dir)
     double d_x = ( dir == 'x' ? -2 - lame_1/lame_2 : -1. );
     double d_y = ( dir == 'y' ? -2 - lame_1/lame_2 : -1. );
     double d_z = ( dir == 'z' ? -2 - lame_1/lame_2 : -1. );
+    
+    char border_flag[3] = {0, 0, 0};
 
     ptr.push_back(0);
 
     //Build matrix
     for(auto index = 0; index < n; ++index)
     {
-        auto k = index / (n_x*n_y);
-        auto tmp_loc = index - k*n_x*n_y;
-        auto j = tmp_loc/n_x;
-        auto i = tmp_loc - j*n_x;
-
-        bool is_border = 
-            (k == 0) || (k == n_z - 1) || (j == 0) || 
-            (j == n_y - 1) || (i == 0) || (i ==  n_x - 1); 
-
-if (is_border)
+        if (is_border(index, border_flag))
         {
             val.push_back(1.);
             col.push_back(index);
@@ -438,10 +391,93 @@ double sec_ord_mx(vector<double> &u, int index, const string &dir)
 
 int check_disp(vector<double> &u)
 {
-    for(auto index = 0; index < n; ++index)
-        if( fabs(u[index]) < 1e-6 )
-            u[index] = 0.;
+    for(auto &elem : u)
+        if( fabs(elem) < 1e-6 )
+            elem = 0.;
     return 0;
 }
 
+double get_perm(int index_1, int index_2, vector<double> &permeability)
+{
+    return ( permeability[index_1] + permeability[index_2] ) / 2.;    
+}
 
+double get_press_coef(int index, vector<double> &permeability, 
+                        vector<point> &wells, const string &direction)
+{
+    auto k = index/(n_x*n_y);
+    auto tmp_loc = index - k*n_x*n_y;
+    auto j = tmp_loc/n_x;
+    auto i = tmp_loc - j*n_x;
+
+    auto tmp = hour / (length * length); //undimensional coeff for d_2_p/d_xi_2
+  
+    int step = ( direction[1] == 'b' ? -1 : 1 );
+
+    switch( direction[0] )
+    {
+        case 'z':
+            {
+                tmp *= get_perm(index, index + step * n_x * n_y, permeability);
+                break;
+            }
+        case 'y':
+            {
+                tmp *= get_perm(index, index + step * n_x, permeability);
+                tmp *= get_nu(double(i), double(j) + step * 0.5, wells);
+                break;
+            }
+        case 'x':
+            {
+                tmp *= get_perm(index, index + step, permeability);
+                tmp *= get_nu(double(i) + step * 0.5, double(j), wells);
+                break;
+            }
+        default: return -1.;
+    }
+
+    return tmp;
+}
+
+bool is_border(int index, char *flag)
+{
+    auto k = index / (n_x*n_y);
+    auto tmp_loc = index - k*n_x*n_y;
+    auto j = tmp_loc/n_x;
+    auto i = tmp_loc - j*n_x;
+
+    flag[0] = flag[1] = flag[2] = 0;
+
+    if(k == 0)
+        flag[0] = 't';
+
+    if(k == n_z - 1)
+        flag[0] = 'b';
+
+    if(j == 0)
+        flag[1] = 's';
+
+    if(j == n_y - 1)
+        flag[1] = 'n';
+
+    if(i == 0)
+        flag[2] = 'w';
+    
+    if(i == n_x - 1)
+        flag[2] = 'e';
+
+    return ( (flag[0] != 0) || (flag[1] != 0) || (flag[2] != 0) );
+}
+
+bool is_well(int index, vector<point> &wells)
+{
+    auto k = index/(n_x*n_y);
+    auto tmp_loc = index - k*n_x*n_y;
+    auto j = tmp_loc/n_x;
+    auto i = tmp_loc - j*n_x;
+
+    point tmp_well(i,j);
+
+    return ( (!wells.empty()) && 
+            (find(wells.begin(), wells.end(), tmp_well) != wells.end()) );
+}

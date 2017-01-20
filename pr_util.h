@@ -37,7 +37,7 @@ const double gamma_1 = 0.1; // parameter, m^2/s
 const double d = 1e-4; // diameter of the particles, m
 const double T = 10.; //tortuosity
 
-const double p_up = 0.1*1e6 + 0.1*1e6*depth/10.; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 
+const double p_top = 0.1*1e6 + 0.1*1e6*depth/10.; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 
 //const double p_bot = p_up; //minus hydrostatic
 const double p_bot = 0.1*1e6 + 0.1*1e6*(depth+length)/10.; // initial pressure bottom: atmospheric + 0.1 MPa for 10 m 
 const double p_bh = 2*p_bot; // pressure on the borehole
@@ -69,18 +69,18 @@ struct vec_3d
 
 int wrt_vtk(std::vector<double> &arr, const std::string filename);
 
-double get_nu(double i, double j, std::vector<point> boreholes);
+double get_nu(double i, double j, std::vector<point> wells);
 
 int get_q(std::vector<double> &pressure, vec_3d &velocity, 
-        std::vector<double> &permeability, std::vector<point> boreholes);
+        std::vector<double> &permeability, std::vector<point> wells);
 
 int conc_calc(std::vector<double> &concentration, std::vector<double> porosity,
         std::vector<double> source, vec_3d &velocity,
-        std::vector<point> boreholes, int time);
+        std::vector<point> wells, int time);
 
 int build_press_mat(std::vector<int> &col, std::vector<double> &val, 
         std::vector<int> &ptr, std::vector<double> &rhs, 
-        std::vector<double> &permeability, std::vector<point> &boreholes);
+        std::vector<double> &permeability, std::vector<point> &wells);
 
 int build_u_mat(std::vector<int> &col, std::vector<double> &val, 
         std::vector<int> &ptr, char dir);
@@ -90,4 +90,13 @@ int drawLine(int x1, int y1, int x2, int y2, int z,std::vector<double> &matrix);
 double sec_ord_mx(std::vector<double> &arr, int index, const std::string &dir);
 
 int check_disp(std::vector<double> &u);
+
+double get_perm(int index_1, int index_2, std::vector<double> &permeability);
+
+double get_press_coef(int index, std::vector<double> &permeability,
+        std::vector<point> &wells, const std::string &direction);
+
+bool is_border(int index, char *flag);
+
+bool is_well(int index, std::vector<point> &wells);
 #endif

@@ -105,7 +105,6 @@ int main(int argc, char *argv[])
     prof.toc("build press matrix");
 
     prof.tic("solve press matrix");
-    vex::copy(pressure, x_pr);
     vex::copy(rhs_pr, rhs_dev_pr);
     solve(rhs_dev_pr, x_pr);
     vex::copy(x_pr, pressure);   
@@ -127,12 +126,16 @@ int main(int argc, char *argv[])
     prof.tic("time cycle");
     for(auto t = 0; t < 0; ++t)
     {
-        /*first stage*/
         //pressure
-        std::fill(rhs_pr.begin(), rhs_pr.end(), 0.);
+/*        std::fill(rhs_pr.begin(), rhs_pr.end(), 0.);
         vex::copy(rhs_pr, rhs_dev_pr);
+
         build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, boreholes);
+        Solver solve( boost::tie(n, ptr_pr, col_pr, val_pr) );
+        
+        vex::copy(rhs_pr, rhs_dev_pr);
         solve(rhs_dev_pr, x_pr);
+        
         vex::copy(x_pr, pressure);
         get_q(pressure, velocity, permeability, boreholes);
 
@@ -255,8 +258,8 @@ int main(int argc, char *argv[])
 
             permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
         }
-        /*----------------------------------------------------------------------------------------------------------------------*/
-        /*second stage*/
+        
+        
         //pressure
         for(auto index = 0; index < n; ++index)
             rhs_pr[index] = -h * h *
@@ -431,7 +434,7 @@ int main(int argc, char *argv[])
             wrt_vtk(concentration, filename);
 
             writer_step = 0;
-        }
+        }*/
     }
 
     prof.toc("time cycle");
