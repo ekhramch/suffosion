@@ -179,7 +179,6 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
     char border_flag[3] = {0, 0, 0};
     char well_flag = 0;
 
-    //Build matrix
     for(auto index = 0; index < n; ++index)
     {
         double k_f, k_b, j_f, j_b, i_f, i_b, cntr;

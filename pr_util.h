@@ -38,8 +38,8 @@ const double d = 1e-4; // diameter of the particles, m
 const double T = 10.; //tortuosity
 
 const double p_top = 0.1*1e6 + 0.1*1e6*depth/10.; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 
-//const double p_bot = p_up; //minus hydrostatic
-const double p_bot = 0.1*1e6 + 0.1*1e6*(depth+length)/10.; // initial pressure bottom: atmospheric + 0.1 MPa for 10 m 
+const double p_bot = p_top; //minus hydrostatic
+//const double p_bot = 0.1*1e6 + 0.1*1e6*(depth+length)/10.; // initial pressure bottom: atmospheric + 0.1 MPa for 10 m 
 const double p_bh = 2*p_bot; // pressure on the borehole
 const double r_c = 0.1/length; // radius of borehole, undimensioned
 
