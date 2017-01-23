@@ -177,110 +177,125 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
     ptr.push_back(0);
 
     char border_flag[3] = {0, 0, 0};
+    char well_flag = 0;
 
     //Build matrix
     for(auto index = 0; index < n; ++index)
     {
-        auto k_f = get_press_coef( index, permeability, wells, "zf" );
-        auto k_b = get_press_coef( index, permeability, wells, "zb" );
-        auto j_f = get_press_coef( index, permeability, wells, "yb" );
-        auto j_b = get_press_coef( index, permeability, wells, "yf" );
-        auto i_f = get_press_coef( index, permeability, wells, "xf" );
-        auto i_b = get_press_coef( index, permeability, wells, "xb" );
-        auto cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
+        double k_f, k_b, j_f, j_b, i_f, i_b, cntr;
 
-        if(is_well(index, wells))
+        if( is_border(index, border_flag) )
         {
-            k_f = k_b = j_f = j_b = i_f = i_b = 0;
-            cntr = 1.;
-            rhs[index] = p_bh;
-        }
-
-        if(is_border(index, border_flag))
-        {
-            if(border_flag[0])
+            if(border_flag[0] != 0)
             {
-                k_f = k_b = j_f = j_b = i_f = i_b = 0;
-                cntr = 1.;
+                k_f = k_b = j_f = j_b = i_f = i_b = 0.;
                 rhs[index] = (border_flag[0] == 't' ? p_top : p_bot);
+                cntr = 1.;
             }
             else
             {
-                if(border_flag[1])
+                if(border_flag[1] == 's')
                 {
-                    j_f = (border_flag[1] == 's' ? 2.*j_f : 0);
-                    j_b = (border_flag[1] == 'n' ? 2.*j_b : 0);
+                    k_f = get_press_coef( index, permeability, wells, "zf" );
+                    k_b = get_press_coef( index, permeability, wells, "zb" );
+                    j_b = 2. * get_press_coef(index, permeability, wells, "yf");
+                    i_f = get_press_coef( index, permeability, wells, "xf" );
+                    i_b = get_press_coef( index, permeability, wells, "xb" );
+                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
                 }
-                if(border_flag[2])
+
+                if(border_flag[1] == 'n')
+                {                   
+                    k_f = get_press_coef( index, permeability, wells, "zf" );
+                    k_b = get_press_coef( index, permeability, wells, "zb" );
+                    j_f = 2. * get_press_coef(index, permeability, wells, "yb");
+                    i_f = get_press_coef( index, permeability, wells, "xf" );
+                    i_b = get_press_coef( index, permeability, wells, "xb" );
+                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
+                }
+
+                if(border_flag[2] == 'w')
                 {
-                    i_f = (border_flag[2] == 'w' ? 2.*i_f : 0);
-                    i_b = (border_flag[2] == 'e' ? 2.*i_b : 0);
+                    k_f = get_press_coef( index, permeability, wells, "zf" );
+                    k_b = get_press_coef( index, permeability, wells, "zb" );
+                    j_f = get_press_coef(index, permeability, wells, "yb");
+                    j_b = get_press_coef(index, permeability, wells, "yf");
+                    i_f = 2. * get_press_coef(index, permeability, wells, "xf");
+                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
+                }
+
+                if(border_flag[1] == 'e')
+                {                   
+                    k_f = get_press_coef( index, permeability, wells, "zf" );
+                    k_b = get_press_coef( index, permeability, wells, "zb" );
+                    j_f = get_press_coef(index, permeability, wells, "yb");
+                    j_b = get_press_coef(index, permeability, wells, "yf");
+                    i_b = 2. * get_press_coef(index, permeability, wells, "xb");
+                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
                 }
             }
         }
-        
-        if(k_b)
+        else
         {
-            val.push_back(k_b);
-            col.push_back(index - n_x*n_y);
+            k_f = get_press_coef( index, permeability, wells, "zf" );
+            k_b = get_press_coef( index, permeability, wells, "zb" );
+            j_f = get_press_coef( index, permeability, wells, "yb" );
+            j_b = get_press_coef( index, permeability, wells, "yf" );
+            i_f = get_press_coef( index, permeability, wells, "xf" );
+            i_b = get_press_coef( index, permeability, wells, "xb" );
+            cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
         }
 
-        if(j_b)
+        if( is_well(index, wells, well_flag) )
         {
-            if(is_well(index - n_x, wells))
-                rhs[index] -= j_b*p_bh;
-            else
+            switch(well_flag)
             {
-                val.push_back(j_b);
-                col.push_back(index - n_x);
+                case 'c':
+                    {
+                        rhs[index] = p_bh;
+                        k_f = k_b = j_f = j_b = i_f = i_b = 0;
+                        cntr = 1.;
+                        break;
+                    }
+                case 'n':
+                    {
+                        rhs[index] -= j_f * p_bh;
+                        j_f = 0.;
+                        break;
+                    }
+                case 's':
+                    {            
+                        rhs[index] -= j_b * p_bh;
+                        j_b = 0.;
+                        break;
+                    }
+                case 'e':
+                    {
+                        rhs[index] -= i_f * p_bh;
+                        i_f = 0.;
+                        break;
+                    }
+                case 'w':
+                    {            
+                        rhs[index] -= i_b * p_bh;
+                        i_b = 0.;
+                        break;
+                    }
+                default:
+                    break;
             }
         }
 
-        if(i_b)
-        {
-            if(is_well(index - 1, wells))
-                rhs[index] -= i_b*p_bh;
-            else
-            {
-                val.push_back(i_b);
-                col.push_back(index - 1);
-            }
-        }
-
-        val.push_back(cntr);
-        col.push_back(index);
-
-        if(i_f)
-        {
-            if(is_well(index + 1, wells))
-                rhs[index] -= i_f*p_bh;
-            else
-            {
-                val.push_back(i_f);
-                col.push_back(index + 1);
-            }
-        }
-
-        if(j_f)
-        {
-            if(is_well(index + n_x, wells))
-                rhs[index] -= j_f*p_bh;
-            else
-            {
-                val.push_back(j_f);
-                col.push_back(index + n_x);
-            }
-        }
-
-        if(k_f)
-        {
-            val.push_back(k_f);
-            col.push_back(index + n_x*n_y);  
-        }
+        place_val(k_b, index - n_x * n_y, col, val);
+        place_val(j_b, index - n_x, col, val);
+        place_val(i_b, index - 1, col, val);
+        place_val(cntr, index, col, val);
+        place_val(i_f, index + 1, col, val);
+        place_val(j_f, index + n_x, col, val);
+        place_val(k_f, index + n_x * n_y, col, val);
 
         ptr.push_back(col.size());
     }
-
     return 0;
 }
 
@@ -469,15 +484,51 @@ bool is_border(int index, char *flag)
     return ( (flag[0] != 0) || (flag[1] != 0) || (flag[2] != 0) );
 }
 
-bool is_well(int index, vector<point> &wells)
+bool is_well(int index, vector<point> &wells, char &flag)
 {
     auto k = index/(n_x*n_y);
     auto tmp_loc = index - k*n_x*n_y;
     auto j = tmp_loc/n_x;
     auto i = tmp_loc - j*n_x;
 
-    point tmp_well(i,j);
+    flag = 0;
 
-    return ( (!wells.empty()) && 
-            (find(wells.begin(), wells.end(), tmp_well) != wells.end()) );
+    if(!wells.empty())
+    {
+        point tmp_well(i,j);
+
+        if(find(wells.begin(), wells.end(), tmp_well) != wells.end())
+            flag = 'c';
+
+        tmp_well.y = j + 1; 
+        if(find(wells.begin(), wells.end(), tmp_well) != wells.end())
+            flag = 'n';
+
+        tmp_well.y = j - 1; 
+        if(find(wells.begin(), wells.end(), tmp_well) != wells.end())
+            flag = 's';
+
+        tmp_well.y = j; 
+
+        tmp_well.x = i + 1; 
+        if(find(wells.begin(), wells.end(), tmp_well) != wells.end())
+            flag = 'e';
+
+        tmp_well.x = i - 1; 
+        if(find(wells.begin(), wells.end(), tmp_well) != wells.end())
+            flag = 'w';
+    }
+
+    return (flag != 0);
+}
+
+int place_val(double value, int index, vector<int> &col, vector<double> &val)
+{
+    if(value)
+    {
+        val.push_back(value);
+        col.push_back(index);
+    }
+
+    return 0;
 }

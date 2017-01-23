@@ -98,5 +98,8 @@ double get_press_coef(int index, std::vector<double> &permeability,
 
 bool is_border(int index, char *flag);
 
-bool is_well(int index, std::vector<point> &wells);
+bool is_well(int index, std::vector<point> &wells, char &flag);
+
+int place_val(double value, int index, 
+        std::vector<int> &col, std::vector<double> &val);
 #endif
