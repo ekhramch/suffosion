@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     std::vector<double> dil_dt(n, 0.); //dilatation time derivative
     std::vector<double> porosity(n, fi_0);
     std::vector<double> por_dt(n, 0.); //porosity time derivative
-    std::vector<point> boreholes; //coordinates of boreholes
+    std::vector<point> wells; //coordinates of wells
 
     //Vectors for calculations - pressure
     std::vector<double> val_pr; //values of nonzero entries
@@ -80,6 +80,8 @@ int main(int argc, char *argv[])
     //other variables
     const auto time = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ) * n_t; 
     int writer_step = 0;
+    point well_1{n_x/2, n_y/2};
+    wells.push_back(well_1);
 
     for(auto i = 0; i < n; ++i)
     {
@@ -100,7 +102,7 @@ int main(int argc, char *argv[])
             > Solver;
 
     prof.tic("build press matrix");
-    build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, boreholes);
+    build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells);
     Solver solve( boost::tie(n, ptr_pr, col_pr, val_pr) );
     prof.toc("build press matrix");
 
@@ -108,7 +110,7 @@ int main(int argc, char *argv[])
     vex::copy(rhs_pr, rhs_dev_pr);
     solve(rhs_dev_pr, x_pr);
     vex::copy(x_pr, pressure);   
-    get_q(pressure, velocity, permeability, boreholes);
+    get_q(pressure, velocity, permeability, wells);
     prof.toc("solve press matrix");
 
     prof.tic("build u_x matrix");
@@ -133,12 +135,12 @@ int main(int argc, char *argv[])
     col_u.clear();  ptr_u.clear(); val_u.clear();
 
     prof.tic("time cycle");
-    for(auto t = 0; t < n_t; ++t)
+    for(auto t = 0; t < 0; ++t)
     {
         //pressure
         prof.tic("build pressure matrix");
         std::fill(rhs_pr.begin(), rhs_pr.end(), 0.);
-        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, boreholes);
+        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, wells);
         vex::copy(rhs_pr, rhs_dev_pr);
         Solver solve( boost::tie(n, ptr_pr, col_pr, val_pr) );
         prof.toc("build pressure matrix");        
@@ -151,10 +153,10 @@ int main(int argc, char *argv[])
         col_pr.clear();  ptr_pr.clear(); val_pr.clear();
 
         //velocity
-        get_q(pressure, velocity, permeability, boreholes);
+        get_q(pressure, velocity, permeability, wells);
 
         //concentration
-        conc_calc(concentration, porosity, source, velocity, boreholes, time);
+        conc_calc(concentration, porosity, source, velocity, wells, time);
 
         //u_x
         for(auto k = 1; k < n_z - 1; ++k)
@@ -260,14 +262,14 @@ int main(int argc, char *argv[])
 /*        for(auto index = 0; index < n; ++index)
             rhs_pr[index] = -h * h *
                 ( por_dt[index] + porosity[index] * dil_dt[index] );
-        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, boreholes);
+        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, wells);
         vex::copy(rhs_pr, rhs_dev_pr);
         //solve(rhs_dev_pr, x_pr);
         //vex::copy(x_pr, pressure);
-        get_q(pressure, velocity, permeability, boreholes);
+        get_q(pressure, velocity, permeability, wells);
 
         //concentration
-        conc_calc(concentration, porosity, source, velocity, boreholes, time);
+        conc_calc(concentration, porosity, source, velocity, wells, time);
 
         //u_x
         for(auto index = 0; index < n; ++index)
