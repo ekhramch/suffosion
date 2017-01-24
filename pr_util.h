@@ -9,14 +9,13 @@ const auto n = n_x*n_y*n_z; //size of vectors
 const auto h_i = 1; //for i+-1
 const auto h_j = n_x; //for j+-1
 const auto h_k = n_x * n_y; //for k+-1
-const auto in_idx = 1 + n_x + n_x * n_y;
 
 const double h = 1. / n_x; // spatial step
 const double h_t = 1. / n_t; // time step
 
 const double hour = 3600.; // time for undim, 1 hour, sec
 const double length = 100.; // standart length of the layer, m
-const double depth = 500; // depth of layer, m
+const double depth = 500.; // depth of layer, m
 
 const double k_0 = 1e-12; // initial permeability, m^2=1darci
 const double q_0 = 1.16*1e-5; // initial speed, 1 m per day in m/sec
@@ -40,8 +39,8 @@ const double T = 10.; //tortuosity
 const double p_top = 0.1*1e6 + 0.1*1e6*depth/10.; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 
 const double p_bot = p_top; //minus hydrostatic
 //const double p_bot = 0.1*1e6 + 0.1*1e6*(depth+length)/10.; // initial pressure bottom: atmospheric + 0.1 MPa for 10 m 
-const double p_bh = 2*p_bot; // pressure on the borehole
-const double r_c = 0.1/length; // radius of borehole, undimensioned
+const double p_bh = 2. * p_top; // pressure on the borehole
+const double r_c = 0.1 / length; // radius of borehole, undimensioned
 
 struct point
 {

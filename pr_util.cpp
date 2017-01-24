@@ -54,20 +54,16 @@ double get_nu(double i, double j, vector<point> wells)
 {
     auto sum = 0.;
 
-    for(auto& bh : wells)
+    for(auto& w : wells)
     {
-        auto i_b = bh.x;
-        auto j_b = bh.y;
-        auto r_2 = (double(i_b) - i)*(double(i_b) - i) + (double(j_b) - j)*(double(j_b) - j);
+        auto r_2 = pow(double(w.x) - i, 2.) + pow(double(w.y) - j, 2.);
 
-        if(fabs(r_2 - 0.25)<0.0001)
+        if(fabs(double(r_2) - 0.25)<0.0001)
             sum += 3.14/(2.0*log((h/r_c)));
-        else
-            if(fabs(r_2 - 1.25)<0.0001)
-                sum += 2.0*atan(0.5)/log(2.0);
-            else
-                if(fabs(r_2 - 2.25)<0.0001)
-                    sum += 2.0*atan(1.0/3.0)/log(2.0);
+        else if(fabs(r_2 - 1.25)<0.0001)
+            sum += 2.0*atan(0.5)/log(2.0);
+        else if(fabs(r_2 - 2.25)<0.0001)
+            sum += 2.0*atan(1.0/3.0)/log(2.0);
     }
 
     return (sum ? sum : 1.);
@@ -183,67 +179,64 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
     {
         double k_f, k_b, j_f, j_b, i_f, i_b, cntr;
 
+        k_f = k_b = j_f = j_b = i_f = i_b = cntr = 0.;
+
         if( is_border(index, border_flag) )
         {
-            if(border_flag[0] != 0)
+            if(border_flag[2] != 0)
             {
-                k_f = k_b = j_f = j_b = i_f = i_b = 0.;
-                rhs[index] = (border_flag[0] == 't' ? p_top : p_bot);
-                cntr = 1.;
+                if(border_flag[2] == 'w')
+                    i_f = 2. * get_press_coef(index, permeability, wells, "xf");
+                else
+                    i_b = 2. * get_press_coef(index, permeability, wells, "xb");
             }
             else
             {
+                i_f = get_press_coef( index, permeability, wells, "xf" );
+                i_b = get_press_coef( index, permeability, wells, "xb" );
+            }               
+
+            if(border_flag[1] != 0)
+            {
                 if(border_flag[1] == 's')
-                {
-                    k_f = get_press_coef( index, permeability, wells, "zf" );
-                    k_b = get_press_coef( index, permeability, wells, "zb" );
-                    j_b = 2. * get_press_coef(index, permeability, wells, "yf");
-                    i_f = get_press_coef( index, permeability, wells, "xf" );
-                    i_b = get_press_coef( index, permeability, wells, "xb" );
-                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
-                }
+                    j_f = 2. * get_press_coef(index, permeability, wells, "yf");
+                else
+                    j_b = 2. * get_press_coef(index, permeability, wells, "yb");
+            }
+            else
+            {
+                j_f = get_press_coef(index, permeability, wells, "yf");
+                j_b = get_press_coef(index, permeability, wells, "yb");
+            }
 
-                if(border_flag[1] == 'n')
-                {                   
-                    k_f = get_press_coef( index, permeability, wells, "zf" );
-                    k_b = get_press_coef( index, permeability, wells, "zb" );
-                    j_f = 2. * get_press_coef(index, permeability, wells, "yb");
-                    i_f = get_press_coef( index, permeability, wells, "xf" );
-                    i_b = get_press_coef( index, permeability, wells, "xb" );
-                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
-                }
-
-                if(border_flag[2] == 'w')
-                {
-                    k_f = get_press_coef( index, permeability, wells, "zf" );
-                    k_b = get_press_coef( index, permeability, wells, "zb" );
-                    j_f = get_press_coef(index, permeability, wells, "yb");
-                    j_b = get_press_coef(index, permeability, wells, "yf");
-                    i_f = 2. * get_press_coef(index, permeability, wells, "xf");
-                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
-                }
-
-                if(border_flag[1] == 'e')
-                {                   
-                    k_f = get_press_coef( index, permeability, wells, "zf" );
-                    k_b = get_press_coef( index, permeability, wells, "zb" );
-                    j_f = get_press_coef(index, permeability, wells, "yb");
-                    j_b = get_press_coef(index, permeability, wells, "yf");
-                    i_b = 2. * get_press_coef(index, permeability, wells, "xb");
-                    cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
-                }
+            if(border_flag[0] != 0)
+            {
+                rhs[index] = p_top;
+                cntr = 1.;
+                k_f = k_b = j_f = j_b = i_b = i_f = 0.;
+                
+                /*if(border_flag[0] == 'b')
+                    k_f = 2. * get_press_coef(index, permeability, wells, "zf");
+                else
+                    k_b = 2. * get_press_coef(index, permeability, wells, "zb");*/
+            }
+            else
+            {
+                k_f = get_press_coef( index, permeability, wells, "zf" );
+                k_b = get_press_coef( index, permeability, wells, "zb" );
             }
         }
         else
         {
             k_f = get_press_coef( index, permeability, wells, "zf" );
             k_b = get_press_coef( index, permeability, wells, "zb" );
-            j_f = get_press_coef( index, permeability, wells, "yb" );
-            j_b = get_press_coef( index, permeability, wells, "yf" );
+            j_f = get_press_coef( index, permeability, wells, "yf" );
+            j_b = get_press_coef( index, permeability, wells, "yb" );
             i_f = get_press_coef( index, permeability, wells, "xf" );
             i_b = get_press_coef( index, permeability, wells, "xb" );
-            cntr = -(k_f + k_b + j_b + j_f + i_b + i_f);
         }
+        
+        cntr += -(k_f + k_b + j_b + j_f + i_b + i_f);
 
         if( is_well(index, wells, well_flag) )
         {
@@ -283,7 +276,7 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
                 default:
                     break;
             }
-        }
+        }      
 
         place_val(k_b, index - n_x * n_y, col, val);
         place_val(j_b, index - n_x, col, val);
@@ -447,7 +440,8 @@ double get_press_coef(int index, vector<double> &permeability,
                 tmp *= get_nu(double(i) + step * 0.5, double(j), wells);
                 break;
             }
-        default: return -1.;
+        default: 
+            break;
     }
 
     return -tmp;
@@ -463,10 +457,10 @@ bool is_border(int index, char *flag)
     flag[0] = flag[1] = flag[2] = 0;
 
     if(k == 0)
-        flag[0] = 't';
+        flag[0] = 'b';
 
     if(k == n_z - 1)
-        flag[0] = 'b';
+        flag[0] = 't';
 
     if(j == 0)
         flag[1] = 's';
