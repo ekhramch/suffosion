@@ -525,3 +525,198 @@ int place_val(double value, int index, vector<int> &col, vector<double> &val)
 
     return 0;
 }
+
+int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
+{
+    double tmp = 1. + lame_1/lame_2;          
+    
+    char border_flag[3] = {0, 0, 0};
+
+    ptr.push_back(0);
+
+    //u_x
+    for(auto index = 0; index < n; ++index)
+    {
+        if (is_border(index, border_flag))
+        {
+            val.push_back(1.);
+            col.push_back(index);
+        }
+        else
+        {
+            //u_x part
+            val.push_back(-1.);
+            col.push_back(index - h_k);
+
+            val.push_back(-1.);
+            col.push_back(index - h_j);
+
+            val.push_back(-1. - tmp);
+            col.push_back(index - h_i);
+
+            val.push_back(8. + 2.*lame_1/lame_2);
+            col.push_back(index);
+
+            val.push_back(-1. - tmp);
+            col.push_back(index + h_i);
+
+            val.push_back(-1.);
+            col.push_back(index + h_j);
+
+            val.push_back(-1.);
+            col.push_back(index + h_k);
+
+            //u_y part
+            val.push_back(-tmp);
+            col.push_back(n + index - h_j);
+
+            val.push_back(tmp);
+            col.push_back(n + index);
+
+            val.push_back(-tmp);
+            col.push_back(n + index + h_i - h_j);
+
+            val.push_back(tmp);
+            col.push_back(n + index + h_i);
+
+            //u_z part
+            val.push_back(-tmp);
+            col.push_back(2 * n + index - h_k);
+
+            val.push_back(tmp);
+            col.push_back(2 * n + index);
+
+            val.push_back(-tmp);
+            col.push_back(2 * n + index + h_i - h_k);
+
+            val.push_back(tmp);
+            col.push_back(2 * n + index + h_i);
+        }
+        ptr.push_back(col.size());
+    }
+
+    //u_y
+    for(auto index = 0; index < n; ++index)
+    {
+        if (is_border(index, border_flag))
+        {
+            val.push_back(1.);
+            col.push_back(index);
+        }
+        else
+        {
+            //u_x part
+            val.push_back(-tmp);
+            col.push_back(index - h_j);
+
+            val.push_back(tmp);
+            col.push_back(index);
+
+            val.push_back(-tmp);
+            col.push_back(index + h_i - h_j);
+
+            val.push_back(tmp);
+            col.push_back(index + h_i);
+
+            //u_y part
+            val.push_back(-1.);
+            col.push_back(n + index - h_k);
+
+            val.push_back(-1. - tmp);
+            col.push_back(n + index - h_j);
+
+            val.push_back(-1.);
+            col.push_back(n + index - h_i);
+
+            val.push_back(8. + 2.*lame_1/lame_2);
+            col.push_back(n + index);
+
+            val.push_back(-1.);
+            col.push_back(n + index + h_i);
+
+            val.push_back(-1. - tmp);
+            col.push_back(n + index + h_j);
+
+            val.push_back(-1.);
+            col.push_back(n + index + h_k);
+
+            //u_z part
+            val.push_back(-tmp);
+            col.push_back(2 * n + index - h_k);
+
+            val.push_back(tmp);
+            col.push_back(2 * n + index);
+
+            val.push_back(-tmp);
+            col.push_back(2 * n + index + h_j - h_k);
+
+            val.push_back(tmp);
+            col.push_back(2 * n + index + h_j);
+        }
+        ptr.push_back(col.size());
+    }
+
+    //u_z
+    for(auto index = 0; index < n; ++index)
+    {
+        if (is_border(index, border_flag))
+        {
+            val.push_back(1.);
+            col.push_back(index);
+        }
+        else
+        {
+            //u_x part
+            val.push_back(-tmp);
+            col.push_back(index - h_k);
+
+            val.push_back(tmp);
+            col.push_back(index);
+
+            val.push_back(-tmp);
+            col.push_back(index + h_i - h_k);
+
+            val.push_back(tmp);
+            col.push_back(index + h_i);
+
+            //u_y part
+            val.push_back(-tmp);
+            col.push_back(n + index - h_k);
+
+            val.push_back(tmp);
+            col.push_back(n + index);
+
+            val.push_back(-tmp);
+            col.push_back(n + index + h_j - h_k);
+
+            val.push_back(tmp);
+            col.push_back(n + index + h_j);
+
+            //u_z part
+            val.push_back(-1. - tmp);
+            col.push_back(2 * n + index - h_k);
+
+            val.push_back(-1.);
+            col.push_back(2 * n + index - h_j);
+
+            val.push_back(-1.);
+            col.push_back(2 * n + index - h_i);
+
+            val.push_back(8. + 2.*lame_1/lame_2);
+            col.push_back(2 * n + index);
+
+            val.push_back(-1.);
+            col.push_back(2 * n + index + h_i);
+
+            val.push_back(-1. - tmp);
+            col.push_back(2 * n + index + h_j);
+
+            val.push_back(-1. - tmp);
+            col.push_back(2 * n + index + h_k);
+        }
+        ptr.push_back(col.size());
+    }
+
+    return 0;
+}
+

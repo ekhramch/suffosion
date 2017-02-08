@@ -1,11 +1,11 @@
 #ifndef PR_UTIL_H 
 #define PR_UTIL_H
 
-const auto n_x = 50; // amount of steps by x-axis
+const auto n_x = 96; // amount of steps by x-axis
 const auto n_y = n_x; // amount of steps by x-axis
 const auto n_z = n_x; // amount of steps by x-axis
 const auto n_t = 1000; // amount of time steps
-const auto n = n_x*n_y*n_z; //size of vectors
+const auto n = n_x * n_y * n_z; //size of vectors
 const auto h_i = 1; //for i+-1
 const auto h_j = n_x; //for j+-1
 const auto h_k = n_x * n_y; //for k+-1
@@ -101,4 +101,7 @@ bool is_well(int index, std::vector<point> &wells, char &flag);
 
 int place_val(double value, int index, 
         std::vector<int> &col, std::vector<double> &val);
+
+int build_disp_mat(std::vector<int> &col,
+        std::vector<double> &val,std::vector<int> &ptr);
 #endif

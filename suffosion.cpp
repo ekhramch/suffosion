@@ -21,6 +21,7 @@
 #include <amgcl/relaxation/damped_jacobi.hpp>
 #include <amgcl/solver/gmres.hpp>
 #include <amgcl/profiler.hpp>
+#include <amgcl/io/mm.hpp>
 /*end of section*/
 
 #include "pr_util.h"
@@ -71,11 +72,13 @@ int main(int argc, char *argv[])
     std::vector<double> val_u; //values of nonzero entries
     std::vector<int>    col_u; //column numbers of nonzero entries
     std::vector<int>    ptr_u; //points to the start of each row in col_pr 
-    std::vector<double> rhs_u(n, 0.); // right-hand side 
+    std::vector<double> rhs_u(3 * n, 0.); // right-hand side 
+    std::vector<double> disp(3 * n, 0.); 
     vex::vector<double> rhs_dev_u(ctx.queue(), rhs_u); // rhs on device
     vex::vector<double> x_ux(ctx.queue(), u_x); // unknown vector on device
     vex::vector<double> x_uy(ctx.queue(), u_y); // unknown vector on device
     vex::vector<double> x_uz(ctx.queue(), u_z); // unknown vector on device
+    vex::vector<double> x_u(ctx.queue(), disp);
 
     //other variables
     const auto time = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ) * n_t; 
@@ -101,6 +104,10 @@ int main(int argc, char *argv[])
             >
             > Solver;
 
+    col_pr.reserve(n);
+    val_pr.reserve(n);
+    ptr_pr.reserve(n);
+
     prof.tic("build press matrix");
     build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells);
     Solver solve( boost::tie(n, ptr_pr, col_pr, val_pr) );
@@ -112,27 +119,54 @@ int main(int argc, char *argv[])
     vex::copy(x_pr, pressure);   
     get_q(pressure, velocity, permeability, wells);
     prof.toc("solve press matrix");
+    
+    int n_u = 3 * n;
+    col_u.reserve(n_u);
+    val_u.reserve(n_u);
+    ptr_u.reserve(n_u);
 
-    prof.tic("build u_x matrix");
+    prof.tic("build disp matrix");
+    build_disp_mat(col_u, val_u, ptr_u);
+    Solver solve_disp( boost::tie(n_u, ptr_u, col_u, val_u) );
+    prof.toc("build disp matrix");
+
+    for(auto k = 1; k < n_z - 1; ++k)
+        for(auto j = 1; j < n_y - 1; ++j)
+            for(auto i = 1; i < n_x - 1; ++i)
+            {
+                auto index = i + j * n_x + k * n_x * n_y;
+                rhs_u[index] -= h * ( pressure[index] - pressure[index - h_i] ) / lame_2;
+                rhs_u[index + n] -= h * ( pressure[index] - pressure[index - h_j] ) / lame_2;
+                rhs_u[index + 2 * n] -= h * ( pressure[index] - pressure[index - h_k] ) / lame_2;
+            }
+
+    prof.tic("solve disp");
+    vex::copy(rhs_u, rhs_dev_u);
+    solve_disp(rhs_dev_u, x_u);
+    vex::copy(x_u, disp);
+    prof.toc("solve disp");
+
+    std::copy(disp.begin(), disp.begin() + n, u_x.begin());
+    std::copy(disp.begin() + n, disp.begin() + 2*n, u_y.begin());
+    std::copy(disp.begin() + 2*n, disp.begin() + 3*n, u_z.begin());
+
+    /*prof.tic("build u_x matrix");
     build_u_mat(col_u, val_u, ptr_u, 'x');
     Solver solve_ux( boost::tie(n, ptr_u, col_u, val_u) );
     prof.toc("build u_x matrix");
-
     col_u.clear();  ptr_u.clear(); val_u.clear();
 
     prof.tic("build u_y matrix");
     build_u_mat(col_u, val_u, ptr_u, 'y');
     Solver solve_uy( boost::tie(n, ptr_u, col_u, val_u) );
     prof.toc("build u_y matrix");
-    
     col_u.clear();  ptr_u.clear(); val_u.clear();
 
     prof.tic("build u_z matrix");
     build_u_mat(col_u, val_u, ptr_u, 'z');
     Solver solve_uz( boost::tie(n, ptr_u, col_u, val_u) );
     prof.toc("build u_z matrix");
-
-    col_u.clear();  ptr_u.clear(); val_u.clear();
+    col_u.clear();  ptr_u.clear(); val_u.clear();*/
 
     prof.tic("time cycle");
     for(auto t = 0; t < 0; ++t)
@@ -171,7 +205,7 @@ int main(int argc, char *argv[])
                 }
         prof.tic("solve ux");
         vex::copy(rhs_u, rhs_dev_u);
-        solve_ux(rhs_dev_u, x_ux);
+        //solve_ux(rhs_dev_u, x_ux);
         vex::copy(x_ux, u_x);
         prof.toc("solve ux");
         check_disp(u_x);
@@ -189,7 +223,7 @@ int main(int argc, char *argv[])
                 }
         prof.tic("solve uy");
         vex::copy(rhs_u, rhs_dev_u);
-        solve_ux(rhs_dev_u, x_uy);
+        //solve_ux(rhs_dev_u, x_uy);
         vex::copy(x_uy, u_y);
         prof.toc("solve uy");
         check_disp(u_y);
@@ -207,7 +241,7 @@ int main(int argc, char *argv[])
                 }              
         prof.tic("solve uz");
         vex::copy(rhs_u, rhs_dev_u);
-        solve_ux(rhs_dev_u, x_uz);
+        //solve_ux(rhs_dev_u, x_uz);
         vex::copy(x_uz, u_z);
         prof.toc("solve uz");
         check_disp(u_z);
