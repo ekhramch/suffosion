@@ -137,11 +137,11 @@ int main(int argc, char *argv[])
                 auto index = i + j * n_x + k * n_x * n_y;
                 double tmp = 0.;
                     
-                tmp = (pressure[index + h_i] - pressure[index - h_i])/2.;
                 /*if(i > n_x / 2)
                     tmp = pressure[index] - pressure[index - h_i];
                 else
                     tmp = pressure[index + h_i] - pressure[index];*/
+                tmp = (pressure[index + h_i] - pressure[index - h_i])/2.;
                 rhs_u[index] = -h * length * tmp / lame_2;
 
                 /*if(j > n_y / 2)
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
                     tmp = pressure[index] - pressure[index - h_k];
                 else
                     tmp = pressure[index + h_k] - pressure[index];*/
-                tmp = (pressure[index + h_j] - pressure[index - h_j])/2.;
+                tmp = (pressure[index + h_k] - pressure[index - h_k])/2.;
                 rhs_u[index + 2 * n] = -h * length * tmp / lame_2;
             }
 
