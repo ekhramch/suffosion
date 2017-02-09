@@ -573,10 +573,10 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
             val.push_back(tmp);
             col.push_back(n + index);
 
-            val.push_back(-tmp);
+            val.push_back(tmp);
             col.push_back(n + index + h_i - h_j);
 
-            val.push_back(tmp);
+            val.push_back(-tmp);
             col.push_back(n + index + h_i);
 
             //u_z part
@@ -586,10 +586,10 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
             val.push_back(tmp);
             col.push_back(2 * n + index);
 
-            val.push_back(-tmp);
+            val.push_back(tmp);
             col.push_back(2 * n + index + h_i - h_k);
 
-            val.push_back(tmp);
+            val.push_back(-tmp);
             col.push_back(2 * n + index + h_i);
         }
         ptr.push_back(col.size());
@@ -612,10 +612,10 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
             val.push_back(tmp);
             col.push_back(index);
 
-            val.push_back(-tmp);
+            val.push_back(tmp);
             col.push_back(index + h_i - h_j);
 
-            val.push_back(tmp);
+            val.push_back(-tmp);
             col.push_back(index + h_i);
 
             //u_y part
@@ -647,10 +647,10 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
             val.push_back(tmp);
             col.push_back(2 * n + index);
 
-            val.push_back(-tmp);
+            val.push_back(tmp);
             col.push_back(2 * n + index + h_j - h_k);
 
-            val.push_back(tmp);
+            val.push_back(-tmp);
             col.push_back(2 * n + index + h_j);
         }
         ptr.push_back(col.size());
@@ -673,10 +673,10 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
             val.push_back(tmp);
             col.push_back(index);
 
-            val.push_back(-tmp);
+            val.push_back(tmp);
             col.push_back(index + h_i - h_k);
 
-            val.push_back(tmp);
+            val.push_back(-tmp);
             col.push_back(index + h_i);
 
             //u_y part
@@ -686,10 +686,10 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
             val.push_back(tmp);
             col.push_back(n + index);
 
-            val.push_back(-tmp);
+            val.push_back(tmp);
             col.push_back(n + index + h_j - h_k);
 
-            val.push_back(tmp);
+            val.push_back(-tmp);
             col.push_back(n + index + h_j);
 
             //u_z part

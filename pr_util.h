@@ -1,7 +1,7 @@
 #ifndef PR_UTIL_H 
 #define PR_UTIL_H
 
-const auto n_x = 96; // amount of steps by x-axis
+const auto n_x = 64; // amount of steps by x-axis
 const auto n_y = n_x; // amount of steps by x-axis
 const auto n_z = n_x; // amount of steps by x-axis
 const auto n_t = 1000; // amount of time steps

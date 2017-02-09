@@ -104,8 +104,8 @@ int main(int argc, char *argv[])
             >
             > Solver;
 
-    col_pr.reserve(n);
-    val_pr.reserve(n);
+    col_pr.reserve(7 * n);
+    val_pr.reserve(7 * n);
     ptr_pr.reserve(n);
 
     prof.tic("build press matrix");
@@ -121,8 +121,8 @@ int main(int argc, char *argv[])
     prof.toc("solve press matrix");
     
     int n_u = 3 * n;
-    col_u.reserve(n_u);
-    val_u.reserve(n_u);
+    col_u.reserve(5 * n_u);
+    val_u.reserve(5 * n_u);
     ptr_u.reserve(n_u);
 
     prof.tic("build disp matrix");
@@ -135,9 +135,28 @@ int main(int argc, char *argv[])
             for(auto i = 1; i < n_x - 1; ++i)
             {
                 auto index = i + j * n_x + k * n_x * n_y;
-                rhs_u[index] -= h * ( pressure[index] - pressure[index - h_i] ) / lame_2;
-                rhs_u[index + n] -= h * ( pressure[index] - pressure[index - h_j] ) / lame_2;
-                rhs_u[index + 2 * n] -= h * ( pressure[index] - pressure[index - h_k] ) / lame_2;
+                double tmp = 0.;
+                    
+                tmp = (pressure[index + h_i] - pressure[index - h_i])/2.;
+                /*if(i > n_x / 2)
+                    tmp = pressure[index] - pressure[index - h_i];
+                else
+                    tmp = pressure[index + h_i] - pressure[index];*/
+                rhs_u[index] = -h * length * tmp / lame_2;
+
+                /*if(j > n_y / 2)
+                    tmp = pressure[index] - pressure[index - h_j];
+                else
+                    tmp = pressure[index + h_j] - pressure[index];*/
+                tmp = (pressure[index + h_j] - pressure[index - h_j])/2.;
+                rhs_u[index + n] = -h * length * tmp / lame_2;
+                
+                /*if(k > n_z / 2)
+                    tmp = pressure[index] - pressure[index - h_k];
+                else
+                    tmp = pressure[index + h_k] - pressure[index];*/
+                tmp = (pressure[index + h_j] - pressure[index - h_j])/2.;
+                rhs_u[index + 2 * n] = -h * length * tmp / lame_2;
             }
 
     prof.tic("solve disp");
