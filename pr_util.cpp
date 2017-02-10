@@ -12,6 +12,10 @@
 #include <assert.h>
 #include "omp.h"
 
+#define X(i)(3*(i) + 0)
+#define Y(i)(3*(i) + 1)
+#define Z(i)(3*(i) + 2)
+
 using namespace std;
 
 int wrt_vtk(vector<double> &arr, const string filename)
@@ -528,195 +532,236 @@ int place_val(double value, int index, vector<int> &col, vector<double> &val)
 
 int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
 {
-    double tmp = 1. + lame_1/lame_2;          
+    double c_1 = 1. + lame_1/lame_2;
+    double c_2= 1. + c_1;          
     
     char border_flag[3] = {0, 0, 0};
 
     ptr.push_back(0);
 
-    //u_x
     for(auto index = 0; index < n; ++index)
     {
         if (is_border(index, border_flag))
         {
             val.push_back(1.);
-            col.push_back(index);
-        }
-        else
-        {
-            //u_x part
-            val.push_back(-1.);
-            col.push_back(index - h_k);
+            col.push_back(X(index));
 
-            val.push_back(-1.);
-            col.push_back(index - h_j);
+            ptr.push_back(col.size());
 
-            val.push_back(-1. - tmp);
-            col.push_back(index - h_i);
-
-            val.push_back(8. + 2.*lame_1/lame_2);
-            col.push_back(index);
-
-            val.push_back(-1. - tmp);
-            col.push_back(index + h_i);
-
-            val.push_back(-1.);
-            col.push_back(index + h_j);
-
-            val.push_back(-1.);
-            col.push_back(index + h_k);
-
-            //u_y part
-            val.push_back(-tmp);
-            col.push_back(n + index - h_j);
-
-            val.push_back(tmp);
-            col.push_back(n + index);
-
-            val.push_back(tmp);
-            col.push_back(n + index + h_i - h_j);
-
-            val.push_back(-tmp);
-            col.push_back(n + index + h_i);
-
-            //u_z part
-            val.push_back(-tmp);
-            col.push_back(2 * n + index - h_k);
-
-            val.push_back(tmp);
-            col.push_back(2 * n + index);
-
-            val.push_back(tmp);
-            col.push_back(2 * n + index + h_i - h_k);
-
-            val.push_back(-tmp);
-            col.push_back(2 * n + index + h_i);
-        }
-        ptr.push_back(col.size());
-    }
-
-    //u_y
-    for(auto index = 0; index < n; ++index)
-    {
-        if (is_border(index, border_flag))
-        {
             val.push_back(1.);
-            col.push_back(index);
-        }
-        else
-        {
-            //u_x part
-            val.push_back(-tmp);
-            col.push_back(index - h_j);
+            col.push_back(Y(index));
+            
+            ptr.push_back(col.size());
 
-            val.push_back(tmp);
-            col.push_back(index);
-
-            val.push_back(tmp);
-            col.push_back(index + h_i - h_j);
-
-            val.push_back(-tmp);
-            col.push_back(index + h_i);
-
-            //u_y part
-            val.push_back(-1.);
-            col.push_back(n + index - h_k);
-
-            val.push_back(-1. - tmp);
-            col.push_back(n + index - h_j);
-
-            val.push_back(-1.);
-            col.push_back(n + index - h_i);
-
-            val.push_back(8. + 2.*lame_1/lame_2);
-            col.push_back(n + index);
-
-            val.push_back(-1.);
-            col.push_back(n + index + h_i);
-
-            val.push_back(-1. - tmp);
-            col.push_back(n + index + h_j);
-
-            val.push_back(-1.);
-            col.push_back(n + index + h_k);
-
-            //u_z part
-            val.push_back(-tmp);
-            col.push_back(2 * n + index - h_k);
-
-            val.push_back(tmp);
-            col.push_back(2 * n + index);
-
-            val.push_back(tmp);
-            col.push_back(2 * n + index + h_j - h_k);
-
-            val.push_back(-tmp);
-            col.push_back(2 * n + index + h_j);
-        }
-        ptr.push_back(col.size());
-    }
-
-    //u_z
-    for(auto index = 0; index < n; ++index)
-    {
-        if (is_border(index, border_flag))
-        {
             val.push_back(1.);
-            col.push_back(index);
+            col.push_back(Z(index));
+
+            ptr.push_back(col.size());
         }
         else
         {
-            //u_x part
-            val.push_back(-tmp);
-            col.push_back(index - h_k);
+            //u_x line
 
-            val.push_back(tmp);
-            col.push_back(index);
-
-            val.push_back(tmp);
-            col.push_back(index + h_i - h_k);
-
-            val.push_back(-tmp);
-            col.push_back(index + h_i);
-
-            //u_y part
-            val.push_back(-tmp);
-            col.push_back(n + index - h_k);
-
-            val.push_back(tmp);
-            col.push_back(n + index);
-
-            val.push_back(tmp);
-            col.push_back(n + index + h_j - h_k);
-
-            val.push_back(-tmp);
-            col.push_back(n + index + h_j);
-
-            //u_z part
-            val.push_back(-1. - tmp);
-            col.push_back(2 * n + index - h_k);
-
+            //i,j,k-1
+            //u_x
             val.push_back(-1.);
-            col.push_back(2 * n + index - h_j);
+            col.push_back(X(index - h_k));
+            //u_z
+            val.push_back(-c_1);
+            col.push_back(Z(index - h_k));
 
+            //i+1,j,k-1
+            //u_z
+            val.push_back(c_1);
+            col.push_back(Z(index - h_k + h_i));
+
+            //i,j-1,k
+            //u_x
             val.push_back(-1.);
-            col.push_back(2 * n + index - h_i);
+            col.push_back(X(index - h_j));
+            //u_y
+            val.push_back(-c_1);
+            col.push_back(Y(index - h_j));
 
-            val.push_back(8. + 2.*lame_1/lame_2);
-            col.push_back(2 * n + index);
+            //i+1,j-1,k
+            //u_y
+            val.push_back(c_1);
+            col.push_back(Y(index - h_j + h_i));
 
+            //i-1,j,k
+            //u_x
+            val.push_back(-c_2);
+            col.push_back(X(index - h_i));
+
+            //i,j,k
+            //u_x            
+            val.push_back(2. * c_2 + 4.);
+            col.push_back(X(index));
+            //u_y
+            val.push_back(c_1);
+            col.push_back(Y(index));
+            //u_z
+            val.push_back(c_1);
+            col.push_back(Z(index));
+
+            //i+1,j,k
+            //u_x            
+            val.push_back(-c_2);
+            col.push_back(X(index + h_i));
+            //u_y
+            val.push_back(-c_1);
+            col.push_back(Y(index + h_i));
+            //u_z
+            val.push_back(-c_1);
+            col.push_back(Z(index + h_i));
+
+            //i,j+1,k
+            //u_x            
             val.push_back(-1.);
-            col.push_back(2 * n + index + h_i);
+            col.push_back(X(index + h_j));
 
-            val.push_back(-1. - tmp);
-            col.push_back(2 * n + index + h_j);
+            //i,j,k+1
+            //u_x            
+            val.push_back(-1.);
+            col.push_back(X(index + h_k));
 
-            val.push_back(-1. - tmp);
-            col.push_back(2 * n + index + h_k);
+            ptr.push_back(col.size());
+
+            //u_y line
+
+            //i,j,k-1
+            //u_y
+            val.push_back(-1.);
+            col.push_back(Y(index - h_k));
+
+            //i,j-1,k
+            //u_x
+            val.push_back(-c_1);
+            col.push_back(X(index - h_j));            
+            //u_y
+            val.push_back(-c_2);
+            col.push_back(Y(index - h_j));
+            //u_z
+            val.push_back(-c_1);
+            col.push_back(Z(index - h_j));
+
+            //i+1,j-1,k
+            //u_x
+            val.push_back(c_1);
+            col.push_back(X(index - h_j + h_i));              
+
+            //i-1,j,k
+            //u_y
+            val.push_back(-1.);
+            col.push_back(Y(index - h_i));
+
+            //i,j,k
+            //u_x
+            val.push_back(c_1);
+            col.push_back(X(index));            
+            //u_y
+            val.push_back(2. * c_2 + 4.);
+            col.push_back(Y(index));
+            //u_z
+            val.push_back(c_1);
+            col.push_back(Z(index));
+
+            //i+1,j,k
+            //u_x
+            val.push_back(-c_1);
+            col.push_back(X(index + h_i));            
+            //u_y
+            val.push_back(-1.);
+            col.push_back(Y(index + h_i));
+
+            //i,j+1,k
+            //u_y
+            val.push_back(-c_2);
+            col.push_back(Y(index + h_j));
+
+            //i,j-1,k+1
+            //u_z
+            val.push_back(c_1);
+            col.push_back(Z(index - h_j + h_k));
+
+            //i,j,k+1
+            //u_y
+            val.push_back(-1.);
+            col.push_back(Y(index + h_k)); 
+            //u_z
+            val.push_back(-c_1);
+            col.push_back(Z(index + h_k));
+
+            ptr.push_back(col.size());
+
+            //u_z line
+
+            //i,j,k-1
+            //u_x
+            val.push_back(-c_1);
+            col.push_back(X(index - h_k));
+            //u_z
+            val.push_back(-c_2);
+            col.push_back(Z(index - h_k));
+
+            //i+1,j,k-1
+            //u_x
+            val.push_back(c_1);
+            col.push_back(X(index - h_k + h_i));
+
+            //i,j-1,k
+            //u_y
+            val.push_back(-c_1);
+            col.push_back(Y(index - h_j)); 
+            //u_z
+            val.push_back(-1.);
+            col.push_back(Z(index - h_j));
+
+            //i-1,j,k
+            //u_z
+            val.push_back(-1.);
+            col.push_back(Z(index - h_i));
+
+            //i,j,k
+            //u_x
+            val.push_back(c_1);
+            col.push_back(X(index));
+            //u_y
+            val.push_back(c_1);
+            col.push_back(Y(index)); 
+            //u_z
+            val.push_back(2. * c_2 + 4.);
+            col.push_back(Z(index));
+
+            //i+1,j,k
+            //u_x
+            val.push_back(-c_1);
+            col.push_back(X(index + h_i));
+            //u_z
+            val.push_back(-1.);
+            col.push_back(Z(index + h_i));
+
+            //i,j+1,k
+            //u_z
+            val.push_back(-1.);
+            col.push_back(Z(index + h_j));
+
+            //i,j-1,k+1
+            //u_y
+            val.push_back(c_1);
+            col.push_back(Y(index - h_j + h_k)); 
+
+            //i,j,k+1
+            //u_y
+            val.push_back(-c_1);
+            col.push_back(Y(index + h_k));             
+            //u_z
+            val.push_back(-c_2);
+            col.push_back(Z(index + h_k));
+
+            ptr.push_back(col.size());
         }
-        ptr.push_back(col.size());
     }
-
     return 0;
 }
 

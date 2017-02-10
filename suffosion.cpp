@@ -18,7 +18,10 @@
 #include <amgcl/backend/vexcl.hpp>
 #include <amgcl/adapter/crs_tuple.hpp>
 #include <amgcl/coarsening/ruge_stuben.hpp>
+#include <amgcl/coarsening/smoothed_aggregation.hpp>
 #include <amgcl/relaxation/damped_jacobi.hpp>
+#include <amgcl/relaxation/spai0.hpp>
+#include <amgcl/relaxation/ilu0.hpp>
 #include <amgcl/solver/gmres.hpp>
 #include <amgcl/profiler.hpp>
 #include <amgcl/io/mm.hpp>
@@ -96,8 +99,10 @@ int main(int argc, char *argv[])
     typedef amgcl::make_solver<
         amgcl::amg<
         amgcl::backend::vexcl<double>,
-        amgcl::coarsening::ruge_stuben,
-        amgcl::relaxation::damped_jacobi
+        amgcl::coarsening::smoothed_aggregation,
+        amgcl::relaxation::spai0
+        //amgcl::coarsening::ruge_stuben,
+        //amgcl::relaxation::damped_jacobi
             >,
         amgcl::solver::gmres<
             amgcl::backend::vexcl<double>
@@ -124,9 +129,14 @@ int main(int argc, char *argv[])
     col_u.reserve(5 * n_u);
     val_u.reserve(5 * n_u);
     ptr_u.reserve(n_u);
+    int    iters;
+    double error;
 
     prof.tic("build disp matrix");
     build_disp_mat(col_u, val_u, ptr_u);
+    //Solver::params prm;
+    //prm.precond.coarsening.aggr.block_size=3;
+    //Solver solve_disp( boost::tie(n_u, ptr_u, col_u, val_u), prm );
     Solver solve_disp( boost::tie(n_u, ptr_u, col_u, val_u) );
     prof.toc("build disp matrix");
 
@@ -137,55 +147,31 @@ int main(int argc, char *argv[])
                 auto index = i + j * n_x + k * n_x * n_y;
                 double tmp = 0.;
                     
-                /*if(i > n_x / 2)
-                    tmp = pressure[index] - pressure[index - h_i];
-                else
-                    tmp = pressure[index + h_i] - pressure[index];*/
-                tmp = (pressure[index + h_i] - pressure[index - h_i])/2.;
-                rhs_u[index] = -h * length * tmp / lame_2;
+                tmp = (pressure[index + h_i] - pressure[index - h_i]) / 2.;
+                rhs_u[3*index + 0] = -h * length * tmp / lame_2;
 
-                /*if(j > n_y / 2)
-                    tmp = pressure[index] - pressure[index - h_j];
-                else
-                    tmp = pressure[index + h_j] - pressure[index];*/
-                tmp = (pressure[index + h_j] - pressure[index - h_j])/2.;
-                rhs_u[index + n] = -h * length * tmp / lame_2;
+                tmp = (pressure[index + h_j] - pressure[index - h_j]) / 2.;
+                rhs_u[3*index + 1] = -h * length * tmp / lame_2;
                 
-                /*if(k > n_z / 2)
-                    tmp = pressure[index] - pressure[index - h_k];
-                else
-                    tmp = pressure[index + h_k] - pressure[index];*/
-                tmp = (pressure[index + h_k] - pressure[index - h_k])/2.;
-                rhs_u[index + 2 * n] = -h * length * tmp / lame_2;
+                tmp = (pressure[index + h_k] - pressure[index - h_k]) / 2.;
+                rhs_u[3*index + 2] = -h * length * tmp / lame_2;
             }
 
     prof.tic("solve disp");
     vex::copy(rhs_u, rhs_dev_u);
-    solve_disp(rhs_dev_u, x_u);
+    boost::tie(iters, error) = solve_disp(rhs_dev_u, x_u);
     vex::copy(x_u, disp);
     prof.toc("solve disp");
 
-    std::copy(disp.begin(), disp.begin() + n, u_x.begin());
-    std::copy(disp.begin() + n, disp.begin() + 2*n, u_y.begin());
-    std::copy(disp.begin() + 2*n, disp.begin() + 3*n, u_z.begin());
+    std::cout << "iters = " << iters << std::endl;
+    std::cout << "error = " << error << std::endl;
 
-    /*prof.tic("build u_x matrix");
-    build_u_mat(col_u, val_u, ptr_u, 'x');
-    Solver solve_ux( boost::tie(n, ptr_u, col_u, val_u) );
-    prof.toc("build u_x matrix");
-    col_u.clear();  ptr_u.clear(); val_u.clear();
-
-    prof.tic("build u_y matrix");
-    build_u_mat(col_u, val_u, ptr_u, 'y');
-    Solver solve_uy( boost::tie(n, ptr_u, col_u, val_u) );
-    prof.toc("build u_y matrix");
-    col_u.clear();  ptr_u.clear(); val_u.clear();
-
-    prof.tic("build u_z matrix");
-    build_u_mat(col_u, val_u, ptr_u, 'z');
-    Solver solve_uz( boost::tie(n, ptr_u, col_u, val_u) );
-    prof.toc("build u_z matrix");
-    col_u.clear();  ptr_u.clear(); val_u.clear();*/
+    for(auto index = 0; index < n; ++index)
+    {
+        u_x[index] = disp[3*index + 0];
+        u_y[index] = disp[3*index + 1];
+        u_z[index] = disp[3*index + 2];
+    }
 
     prof.tic("time cycle");
     for(auto t = 0; t < 0; ++t)
@@ -210,60 +196,6 @@ int main(int argc, char *argv[])
 
         //concentration
         conc_calc(concentration, porosity, source, velocity, wells, time);
-
-        //u_x
-        for(auto k = 1; k < n_z - 1; ++k)
-            for(auto j = 1; j < n_y - 1; ++j)
-                for(auto i = 1; i < n_x - 1; ++i)
-                {
-                    auto index = i + j * n_x + k * n_x * n_y;
-
-                    rhs_u[index] = sec_ord_mx(u_y, index, "xy");
-                    rhs_u[index] += sec_ord_mx(u_z, index, "xz"); 
-                    rhs_u[index] -= h * ( pressure[index] - pressure[index - h_i] ) / lame_2;
-                }
-        prof.tic("solve ux");
-        vex::copy(rhs_u, rhs_dev_u);
-        //solve_ux(rhs_dev_u, x_ux);
-        vex::copy(x_ux, u_x);
-        prof.toc("solve ux");
-        check_disp(u_x);
-
-        //u_y
-        for(auto k = 1; k < n_z - 1; ++k)
-            for(auto j = 1; j < n_y - 1; ++j)
-                for(auto i = 1; i < n_x - 1; ++i)
-                {
-                    auto index = i + j * n_x + k * n_x * n_y;
-                   
-                    rhs_u[index] = sec_ord_mx(u_y, index, "xy");
-                    rhs_u[index] += sec_ord_mx(u_z, index, "yz"); 
-                    rhs_u[index] -= h * ( pressure[index] - pressure[index - h_j] ) / lame_2;
-                }
-        prof.tic("solve uy");
-        vex::copy(rhs_u, rhs_dev_u);
-        //solve_ux(rhs_dev_u, x_uy);
-        vex::copy(x_uy, u_y);
-        prof.toc("solve uy");
-        check_disp(u_y);
-
-        //u_z
-        for(auto k = 1; k < n_z - 1; ++k)
-            for(auto j = 1; j < n_y - 1; ++j)
-                for(auto i = 1; i < n_x - 1; ++i)
-                {
-                    auto index = i + j * n_x + k * n_x * n_y;
-                   
-                    rhs_u[index] = sec_ord_mx(u_y, index, "xz");
-                    rhs_u[index] += sec_ord_mx(u_z, index, "yz"); 
-                    rhs_u[index] -= h * ( pressure[index] - pressure[index - h_k] ) / lame_2;
-                }              
-        prof.tic("solve uz");
-        vex::copy(rhs_u, rhs_dev_u);
-        //solve_ux(rhs_dev_u, x_uz);
-        vex::copy(x_uz, u_z);
-        prof.toc("solve uz");
-        check_disp(u_z);
 
         //dilatation
         for (auto k = 1; k < n_z - 1; ++k)
