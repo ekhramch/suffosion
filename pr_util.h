@@ -99,9 +99,11 @@ bool is_border(int index, char *flag);
 
 bool is_well(int index, std::vector<point> &wells, char &flag);
 
+bool is_well(int index, std::vector<point> &wells);
+
 int place_val(double value, int index, 
         std::vector<int> &col, std::vector<double> &val);
 
-int build_disp_mat(std::vector<int> &col,
-        std::vector<double> &val,std::vector<int> &ptr);
+int build_disp_mat(std::vector<int> &col, std::vector<double> &val, 
+        std::vector<int> &ptr, std::vector<point> &wells);
 #endif

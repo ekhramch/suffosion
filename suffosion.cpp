@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
+#include "boost/multi_array.hpp"
 #include <vexcl/vexcl.hpp>
 
 #ifdef nDEBUG
@@ -133,7 +134,7 @@ int main(int argc, char *argv[])
     double error;
 
     prof.tic("build disp matrix");
-    build_disp_mat(col_u, val_u, ptr_u);
+    build_disp_mat(col_u, val_u, ptr_u, wells);
     //Solver::params prm;
     //prm.precond.coarsening.aggr.block_size=3;
     //Solver solve_disp( boost::tie(n_u, ptr_u, col_u, val_u), prm );
@@ -146,15 +147,28 @@ int main(int argc, char *argv[])
             {
                 auto index = i + j * n_x + k * n_x * n_y;
                 double tmp = 0.;
-                    
-                tmp = (pressure[index + h_i] - pressure[index - h_i]) / 2.;
-                rhs_u[3*index + 0] = -h * length * tmp / lame_2;
-
-                tmp = (pressure[index + h_j] - pressure[index - h_j]) / 2.;
-                rhs_u[3*index + 1] = -h * length * tmp / lame_2;
+                point tmp_well(i,j);
                 
-                tmp = (pressure[index + h_k] - pressure[index - h_k]) / 2.;
-                rhs_u[3*index + 2] = -h * length * tmp / lame_2;
+                if(find(wells.begin(), wells.end(), tmp_well) == wells.end())            
+                {
+                    if(pressure[index] < pressure[index - h_i])
+                        tmp = (pressure[index] - pressure[index - h_i]);
+                    else
+                        tmp = (pressure[index + h_i] - pressure[index]);
+                    rhs_u[3*index + 0] = -h * tmp * length / lame_2;
+
+                    if(pressure[index] < pressure[index - h_j])
+                        tmp = (pressure[index] - pressure[index - h_j]);
+                    else
+                        tmp = (pressure[index + h_j] - pressure[index]);
+                    rhs_u[3*index + 1] = -h * tmp * length / lame_2;
+
+                    if(pressure[index] < pressure[index - h_k])
+                        tmp = (pressure[index] - pressure[index - h_k]);
+                    else
+                        tmp = (pressure[index + h_k] - pressure[index]);               
+                    rhs_u[3*index + 2] = -h * tmp * length / lame_2;
+                }
             }
 
     prof.tic("solve disp");

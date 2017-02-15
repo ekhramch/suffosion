@@ -519,6 +519,21 @@ bool is_well(int index, vector<point> &wells, char &flag)
     return (flag != 0);
 }
 
+bool is_well(int index, vector<point> &wells)
+{
+    auto k = index/(n_x*n_y);
+    auto tmp_loc = index - k*n_x*n_y;
+    auto j = tmp_loc/n_x;
+    auto i = tmp_loc - j*n_x;
+    point tmp_well(i,j);
+
+    if(!wells.empty())
+        return (find(wells.begin(), wells.end(), tmp_well) != wells.end());
+    else
+        return false;
+}
+
+
 int place_val(double value, int index, vector<int> &col, vector<double> &val)
 {
     if(value)
@@ -530,7 +545,8 @@ int place_val(double value, int index, vector<int> &col, vector<double> &val)
     return 0;
 }
 
-int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
+int build_disp_mat(vector<int> &col,vector<double> &val, 
+        vector<int> &ptr, vector<point> &wells)
 {
     double c_1 = 1. + lame_1/lame_2;
     double c_2= 1. + c_1;          
@@ -539,23 +555,19 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
 
     ptr.push_back(0);
 
+    int point;
+
     for(auto index = 0; index < n; ++index)
     {
-        if (is_border(index, border_flag))
+        if (is_border(index, border_flag) || is_well(index, wells)) 
         {
-            val.push_back(1.);
-            col.push_back(X(index));
-
+            place_val(1., X(index), col, val);
             ptr.push_back(col.size());
 
-            val.push_back(1.);
-            col.push_back(Y(index));
-            
+            place_val(1., Y(index), col, val);
             ptr.push_back(col.size());
 
-            val.push_back(1.);
-            col.push_back(Z(index));
-
+            place_val(1., Z(index), col, val);
             ptr.push_back(col.size());
         }
         else
@@ -563,201 +575,221 @@ int build_disp_mat(vector<int> &col,vector<double> &val,vector<int> &ptr)
             //u_x line
 
             //i,j,k-1
+            point = index - h_k;
             //u_x
-            val.push_back(-1.);
-            col.push_back(X(index - h_k));
+            place_val(-1., X(point), col, val);
             //u_z
-            val.push_back(-c_1);
-            col.push_back(Z(index - h_k));
+            place_val(-c_1, Z(point), col, val);
 
             //i+1,j,k-1
-            //u_z
-            val.push_back(c_1);
-            col.push_back(Z(index - h_k + h_i));
+            point = index - h_k + h_i;
+            if(!is_well(point, wells))
+                //u_z
+                place_val(c_1, Z(point), col, val);
 
             //i,j-1,k
-            //u_x
-            val.push_back(-1.);
-            col.push_back(X(index - h_j));
-            //u_y
-            val.push_back(-c_1);
-            col.push_back(Y(index - h_j));
+            point = index - h_j;
+            if(!is_well(point, wells))
+            {
+                //u_x
+                place_val(-1., X(point), col, val);
+                //u_y
+                place_val(-c_1, Y(point), col, val);
+            }
 
             //i+1,j-1,k
-            //u_y
-            val.push_back(c_1);
-            col.push_back(Y(index - h_j + h_i));
+            point = index - h_j + h_i;
+            if(!is_well(point, wells))
+                //u_y
+                place_val(c_1, Y(point), col, val);
 
             //i-1,j,k
-            //u_x
-            val.push_back(-c_2);
-            col.push_back(X(index - h_i));
+            point = index - h_i;
+            if(!is_well(point, wells))
+                //u_x
+                place_val(-c_2, X(point), col, val);
 
             //i,j,k
+            point = index;
             //u_x            
-            val.push_back(2. * c_2 + 4.);
-            col.push_back(X(index));
+            place_val(2. * c_2 + 4., X(point), col, val);
             //u_y
-            val.push_back(c_1);
-            col.push_back(Y(index));
+            place_val(c_1, Y(point), col, val);
             //u_z
-            val.push_back(c_1);
-            col.push_back(Z(index));
+            place_val(c_1, Z(point), col, val);
 
             //i+1,j,k
-            //u_x            
-            val.push_back(-c_2);
-            col.push_back(X(index + h_i));
-            //u_y
-            val.push_back(-c_1);
-            col.push_back(Y(index + h_i));
-            //u_z
-            val.push_back(-c_1);
-            col.push_back(Z(index + h_i));
+            point = index + h_i;
+            if(!is_well(point, wells))
+            {
+                //u_x            
+                place_val(-c_2, X(point), col, val);
+                //u_y
+                place_val(-c_1, Y(point), col, val);
+                //u_z
+                place_val(-c_1, Z(point), col, val);
+            }
 
             //i,j+1,k
-            //u_x            
-            val.push_back(-1.);
-            col.push_back(X(index + h_j));
+            point = index + h_j;
+            if(!is_well(point, wells))
+                //u_x
+                place_val(-1., X(point), col, val);
 
             //i,j,k+1
-            //u_x            
-            val.push_back(-1.);
-            col.push_back(X(index + h_k));
+            point = index + h_k;
+            if(!is_well(point, wells))
+                //u_x
+                place_val(-1., X(point), col, val);
 
             ptr.push_back(col.size());
+
 
             //u_y line
 
             //i,j,k-1
+            point = index - h_k;
             //u_y
-            val.push_back(-1.);
-            col.push_back(Y(index - h_k));
+            place_val(-1., Y(point), col, val);
 
             //i,j-1,k
-            //u_x
-            val.push_back(-c_1);
-            col.push_back(X(index - h_j));            
-            //u_y
-            val.push_back(-c_2);
-            col.push_back(Y(index - h_j));
-            //u_z
-            val.push_back(-c_1);
-            col.push_back(Z(index - h_j));
+            point = index - h_j;
+            if(!is_well(point, wells))
+            {
+                //u_x
+                place_val(-c_1, X(point), col, val);         
+                //u_y
+                place_val(-c_2, Y(point), col, val);         
+                //u_z
+                place_val(-c_1, Z(point), col, val);         
+            }
 
             //i+1,j-1,k
-            //u_x
-            val.push_back(c_1);
-            col.push_back(X(index - h_j + h_i));              
+            point = index - h_j + h_i;
+            if(!is_well(point, wells))
+                //u_x
+                place_val(c_1, X(point), col, val);         
 
             //i-1,j,k
-            //u_y
-            val.push_back(-1.);
-            col.push_back(Y(index - h_i));
+            point = index - h_i;
+            if(!is_well(point, wells))
+                //u_y
+                place_val(-1., Y(point), col, val);         
 
             //i,j,k
-            //u_x
-            val.push_back(c_1);
-            col.push_back(X(index));            
+            point = index;
+            //u_x            
+            place_val(c_1, X(point), col, val);
             //u_y
-            val.push_back(2. * c_2 + 4.);
-            col.push_back(Y(index));
+            place_val(2. * c_2 + 4., Y(point), col, val);
             //u_z
-            val.push_back(c_1);
-            col.push_back(Z(index));
-
+            place_val(c_1, Z(point), col, val);           
+            
             //i+1,j,k
-            //u_x
-            val.push_back(-c_1);
-            col.push_back(X(index + h_i));            
-            //u_y
-            val.push_back(-1.);
-            col.push_back(Y(index + h_i));
+            point = index + h_i;
+            if(!is_well(point, wells))
+            {
+                //u_x
+                place_val(-c_1, X(point), col, val);
+                //u_y
+                place_val(-1., Y(point), col, val);         
+            }
 
             //i,j+1,k
+            point = index + h_j;
             //u_y
-            val.push_back(-c_2);
-            col.push_back(Y(index + h_j));
+            if(!is_well(point, wells))
+                //u_y
+                place_val(-c_2, Y(point), col, val);
 
             //i,j-1,k+1
-            //u_z
-            val.push_back(c_1);
-            col.push_back(Z(index - h_j + h_k));
+            point = index - h_j + h_k;
+            if(!is_well(point, wells))
+                //u_z
+                place_val(c_1, Z(point), col, val);
 
             //i,j,k+1
+            point = index + h_k;
             //u_y
-            val.push_back(-1.);
-            col.push_back(Y(index + h_k)); 
+            place_val(-1., Y(point), col, val);
             //u_z
-            val.push_back(-c_1);
-            col.push_back(Z(index + h_k));
+            place_val(-c_1, Z(point), col, val);
 
             ptr.push_back(col.size());
+
 
             //u_z line
 
             //i,j,k-1
+            point = index - h_k;
             //u_x
-            val.push_back(-c_1);
-            col.push_back(X(index - h_k));
+            place_val(-c_1, X(point), col, val);
             //u_z
-            val.push_back(-c_2);
-            col.push_back(Z(index - h_k));
+            place_val(-c_2, Z(point), col, val);
 
             //i+1,j,k-1
-            //u_x
-            val.push_back(c_1);
-            col.push_back(X(index - h_k + h_i));
+            point = index - h_k + h_i;
+            if(!is_well(point, wells))
+                //u_x
+                place_val(c_1, X(point), col, val);
 
             //i,j-1,k
-            //u_y
-            val.push_back(-c_1);
-            col.push_back(Y(index - h_j)); 
-            //u_z
-            val.push_back(-1.);
-            col.push_back(Z(index - h_j));
+            point = index - h_j;
+            if(!is_well(point, wells))
+            {
+                //u_y
+                place_val(-c_1, Y(point), col, val);
+                //u_z
+                place_val(-1., Z(point), col, val);
+            }
 
             //i-1,j,k
-            //u_z
-            val.push_back(-1.);
-            col.push_back(Z(index - h_i));
+            point = index - h_i;
+            if(!is_well(point, wells))
+                //u_z
+                place_val(-1., Z(point), col, val);
 
             //i,j,k
-            //u_x
-            val.push_back(c_1);
-            col.push_back(X(index));
+            point = index;
+            //u_x            
+            place_val(c_1, X(point), col, val);
             //u_y
-            val.push_back(c_1);
-            col.push_back(Y(index)); 
+            place_val(c_1, Y(point), col, val);
             //u_z
-            val.push_back(2. * c_2 + 4.);
-            col.push_back(Z(index));
+            place_val(2. * c_2 + 4., Z(point), col, val);
 
             //i+1,j,k
-            //u_x
-            val.push_back(-c_1);
-            col.push_back(X(index + h_i));
-            //u_z
-            val.push_back(-1.);
-            col.push_back(Z(index + h_i));
+            point = index + h_i;
+            if(!is_well(point, wells))
+            {
+                //u_x
+                place_val(-c_1, X(point), col, val);
+                //u_z
+                place_val(-1., Z(point), col, val);
+            }
 
             //i,j+1,k
+            point = index + h_j;
             //u_z
-            val.push_back(-1.);
-            col.push_back(Z(index + h_j));
+            if(!is_well(point, wells))
+                //u_z
+                place_val(-1., Z(point), col, val);
 
             //i,j-1,k+1
-            //u_y
-            val.push_back(c_1);
-            col.push_back(Y(index - h_j + h_k)); 
+            point = index - h_j + h_k;
+            if(!is_well(point, wells))
+                //u_y
+                place_val(c_1, Y(point), col, val);
 
             //i,j,k+1
-            //u_y
-            val.push_back(-c_1);
-            col.push_back(Y(index + h_k));             
-            //u_z
-            val.push_back(-c_2);
-            col.push_back(Z(index + h_k));
+            point = index + h_k;
+            if(!is_well(point, wells))
+            {
+                //u_y
+                place_val(-c_1, Y(point), col, val);         
+                //u_z
+                place_val(-c_2, Z(point), col, val);         
+            }
 
             ptr.push_back(col.size());
         }
