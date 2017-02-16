@@ -123,7 +123,6 @@ int main(int argc, char *argv[])
     vex::copy(rhs_pr, rhs_dev_pr);
     solve(rhs_dev_pr, x_pr);
     vex::copy(x_pr, pressure);   
-    get_q(pressure, velocity, permeability, wells);
     prof.toc("solve press matrix");
     
     int n_u = 3 * n;
@@ -135,41 +134,9 @@ int main(int argc, char *argv[])
 
     prof.tic("build disp matrix");
     build_disp_mat(col_u, val_u, ptr_u, wells);
-    //Solver::params prm;
-    //prm.precond.coarsening.aggr.block_size=3;
-    //Solver solve_disp( boost::tie(n_u, ptr_u, col_u, val_u), prm );
+    fill_disp_rhs(pressure, rhs_u, wells);
     Solver solve_disp( boost::tie(n_u, ptr_u, col_u, val_u) );
     prof.toc("build disp matrix");
-
-    for(auto k = 1; k < n_z - 1; ++k)
-        for(auto j = 1; j < n_y - 1; ++j)
-            for(auto i = 1; i < n_x - 1; ++i)
-            {
-                auto index = i + j * n_x + k * n_x * n_y;
-                double tmp = 0.;
-                point tmp_well(i,j);
-                
-                if(find(wells.begin(), wells.end(), tmp_well) == wells.end())            
-                {
-                    if(pressure[index] < pressure[index - h_i])
-                        tmp = (pressure[index] - pressure[index - h_i]);
-                    else
-                        tmp = (pressure[index + h_i] - pressure[index]);
-                    rhs_u[3*index + 0] = -h * tmp * length / lame_2;
-
-                    if(pressure[index] < pressure[index - h_j])
-                        tmp = (pressure[index] - pressure[index - h_j]);
-                    else
-                        tmp = (pressure[index + h_j] - pressure[index]);
-                    rhs_u[3*index + 1] = -h * tmp * length / lame_2;
-
-                    if(pressure[index] < pressure[index - h_k])
-                        tmp = (pressure[index] - pressure[index - h_k]);
-                    else
-                        tmp = (pressure[index + h_k] - pressure[index]);               
-                    rhs_u[3*index + 2] = -h * tmp * length / lame_2;
-                }
-            }
 
     prof.tic("solve disp");
     vex::copy(rhs_u, rhs_dev_u);
@@ -206,7 +173,7 @@ int main(int argc, char *argv[])
         col_pr.clear();  ptr_pr.clear(); val_pr.clear();
 
         //velocity
-        get_q(pressure, velocity, permeability, wells);
+        vel_calc(pressure, velocity, permeability, wells);
 
         //concentration
         conc_calc(concentration, porosity, source, velocity, wells, time);

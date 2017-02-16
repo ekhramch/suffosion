@@ -70,7 +70,7 @@ int wrt_vtk(std::vector<double> &arr, const std::string filename);
 
 double get_nu(double i, double j, std::vector<point> wells);
 
-int get_q(std::vector<double> &pressure, vec_3d &velocity, 
+int vel_calc(std::vector<double> &pressure, vec_3d &velocity, 
         std::vector<double> &permeability, std::vector<point> wells);
 
 int conc_calc(std::vector<double> &concentration, std::vector<double> porosity,
@@ -97,6 +97,8 @@ double get_press_coef(int index, std::vector<double> &permeability,
 
 bool is_border(int index, char *flag);
 
+bool is_border(int index);
+
 bool is_well(int index, std::vector<point> &wells, char &flag);
 
 bool is_well(int index, std::vector<point> &wells);
@@ -106,4 +108,9 @@ int place_val(double value, int index,
 
 int build_disp_mat(std::vector<int> &col, std::vector<double> &val, 
         std::vector<int> &ptr, std::vector<point> &wells);
+
+int fill_disp_rhs(std::vector<double> &pressure, std::vector<double> &rhs,
+        std::vector<point> &wells);
+
+
 #endif

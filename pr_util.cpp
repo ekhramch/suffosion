@@ -481,6 +481,17 @@ bool is_border(int index, char *flag)
     return ( (flag[0] != 0) || (flag[1] != 0) || (flag[2] != 0) );
 }
 
+bool is_border(int index)
+{
+    auto k = index / (n_x*n_y);
+    auto tmp_loc = index - k*n_x*n_y;
+    auto j = tmp_loc/n_x;
+    auto i = tmp_loc - j*n_x;
+
+    return ( (k == 0) || (k == n_z - 1) || (j == 0) || (j == n_y - 1) 
+            || (i == 0) || (i == n_x - 1) );
+}
+
 bool is_well(int index, vector<point> &wells, char &flag)
 {
     auto k = index/(n_x*n_y);
@@ -551,15 +562,13 @@ int build_disp_mat(vector<int> &col,vector<double> &val,
     double c_1 = 1. + lame_1/lame_2;
     double c_2= 1. + c_1;          
     
-    char border_flag[3] = {0, 0, 0};
-
     ptr.push_back(0);
 
     int point;
 
     for(auto index = 0; index < n; ++index)
     {
-        if (is_border(index, border_flag) || is_well(index, wells)) 
+        if (is_border(index) || is_well(index, wells)) 
         {
             place_val(1., X(index), col, val);
             ptr.push_back(col.size());
@@ -794,6 +803,39 @@ int build_disp_mat(vector<int> &col,vector<double> &val,
             ptr.push_back(col.size());
         }
     }
+    return 0;
+}
+
+int fill_disp_rhs(vector<double> &pressure, 
+        vector<double> &rhs, vector<point> &wells)
+{
+    double tmp = 0.;
+
+    for(auto index = 0; index < n; ++index)
+    {
+        if( !(is_well(index, wells)) && !(is_border(index)) )
+        {
+            if(pressure[index] < pressure[index - h_i])
+                tmp = (pressure[index] - pressure[index - h_i]);
+            else
+                tmp = (pressure[index + h_i] - pressure[index]);
+            rhs[3*index + 0] = -h * tmp * length / lame_2;
+
+            if(pressure[index] < pressure[index - h_j])
+                tmp = (pressure[index] - pressure[index - h_j]);
+            else
+                tmp = (pressure[index + h_j] - pressure[index]);
+            rhs[3*index + 1] = -h * tmp * length / lame_2;
+
+            if(pressure[index] < pressure[index - h_k])
+                tmp = (pressure[index] - pressure[index - h_k]);
+            else
+                tmp = (pressure[index + h_k] - pressure[index]);               
+            rhs[3*index + 2] = -h * tmp * length / lame_2;
+
+        }
+    }
+
     return 0;
 }
 
