@@ -282,9 +282,10 @@ double get_pr_coef(int index_1, int index_2, vector<double> &permeability,
     int dx = i_2 - i_1;
     int dy = j_2 - j_1;
 
-    if(dx == 1 || dx == -1)
+    if(dx)
         tmp *= get_nu(double(i_1) + dx * 0.5, double(j_1), wells);
-     else if(dy == 1 || dy == -1)
+     
+    if(dy)
         tmp *= get_nu(double(i_1), double(j_1) + dy * 0.5, wells);
 
     return -tmp;
