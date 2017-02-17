@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
     vec_3d velocity(n); //velocities, x,y,z components
     std::vector<double> source(n, 0.);//source of solid phase
     std::vector<double> concentration(n, c_0); 
+    std::vector<double> tmp_conc(n, c_0); 
     std::vector<double> permeability(n, 0.);
     std::vector<double> matrix(n, 1.); //matrix of permeability
     std::vector<double> u_x(n, 0.), u_y(n, 0.), u_z(n, 0.); //displacements
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
     std::vector<double> dil_dt(n, 0.); //dilatation time derivative
     std::vector<double> porosity(n, fi_0);
     std::vector<double> por_dt(n, 0.); //porosity time derivative
-    std::vector<point> wells; //coordinates of wells
+    std::vector<int> wells; //coordinates of wells
 
     //Vectors for calculations - pressure
     std::vector<double> val_pr; //values of nonzero entries
@@ -85,10 +86,12 @@ int main(int argc, char *argv[])
     vex::vector<double> x_u(ctx.queue(), disp);
 
     //other variables
-    const auto time = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ) * n_t; 
+    const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ) * n_t; 
     int writer_step = 0;
-    point well_1{n_x/2, n_y/2};
-    wells.push_back(well_1);
+
+    add_well(n_x/2, n_y/2, wells);
+
+    std::sort(wells.begin(), wells.end());
 
     for(auto i = 0; i < n; ++i)
     {
@@ -146,259 +149,85 @@ int main(int argc, char *argv[])
 
     std::cout << "iters = " << iters << std::endl;
     std::cout << "error = " << error << std::endl;
-
-    for(auto index = 0; index < n; ++index)
-    {
-        u_x[index] = disp[3*index + 0];
-        u_y[index] = disp[3*index + 1];
-        u_z[index] = disp[3*index + 2];
-    }
+        
+    dil_calc(disp, dilatation, dil_dt);
+    std::fill(dil_dt.begin(), dil_dt.end(), 0.);
 
     prof.tic("time cycle");
     for(auto t = 0; t < 0; ++t)
     {
         //pressure
-        prof.tic("build pressure matrix");
-        std::fill(rhs_pr.begin(), rhs_pr.end(), 0.);
         build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, wells);
         vex::copy(rhs_pr, rhs_dev_pr);
-        Solver solve( boost::tie(n, ptr_pr, col_pr, val_pr) );
-        prof.toc("build pressure matrix");        
-
-        prof.tic("solve pressure");
+        Solver solve(boost::tie(n, ptr_pr, col_pr, val_pr));
         solve(rhs_dev_pr, x_pr);
         vex::copy(x_pr, pressure);
-        prof.toc("solve pressure matrix");
-        
-        col_pr.clear();  ptr_pr.clear(); val_pr.clear();
 
         //velocity
         vel_calc(pressure, velocity, permeability, wells);
 
         //concentration
-        conc_calc(concentration, porosity, source, velocity, wells, time);
+        tmp_conc = concentration;
+        conc_calc(concentration, tmp_conc, porosity, source, velocity, wells);
 
-        //dilatation
-        for (auto k = 1; k < n_z - 1; ++k)
-            for (auto j = 1; j < n_y - 1; ++j)
-                for (auto i = 1; i < n_x - 1; ++i)
-                {
-
-                    auto index = i + j * n_x + k * n_x * n_y;
-
-                    double tmp = u_z[index + h_k] - u_z[index];
-                    tmp += u_y[index + h_j] - u_y[index];
-                    tmp += u_x[index + h_i] - u_z[index];
-                    tmp /= h;
-
-                    /*if(t > 0)
-                        dil_dt[index] = ( tmp - dilatation[index] ) / h_t;*/
-
-                    dilatation[index] = tmp;
-                }
-
-        //porosity&source&permeability
-        for(auto index = 0; index < 0; ++index)
-        {
-            auto vel_mod = sqrt( 
-                    pow(velocity.x[index]/q_0, 2.) + 
-                    pow(velocity.y[index]/q_0, 2.) +
-                    pow(velocity.z[index]/q_0, 2.) );
-
-            double tearoff = (vel_mod < q_0 ? 0. : alfa);
-
-            source[index] = beta * concentration[index] 
-                - tearoff * vel_mod / ( porosity[index] * ro_s ) 
-                + tearoff * q_0 / ro_s;
-
-            auto tmp = porosity[index];
-
-            porosity[index] += 0.5 * h_t * 
-                ( ( 1 - porosity[index] ) * dil_dt[index] - source[index] );
-
-            por_dt[index] = 2. * ( porosity[index] - tmp ) / h_t;
-
-            double s = 6 * ( 1 - porosity[index] ) / d;
-
-            permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
-        }
+        //displacements
+        fill_disp_rhs(pressure, rhs_u, wells);
+        vex::copy(rhs_u, rhs_dev_u);
+        vex::copy(x_u, disp);
         
-        
-        //pressure
-/*        for(auto index = 0; index < n; ++index)
-            rhs_pr[index] = -h * h *
-                ( por_dt[index] + porosity[index] * dil_dt[index] );
-        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, wells);
-        vex::copy(rhs_pr, rhs_dev_pr);
-        //solve(rhs_dev_pr, x_pr);
-        //vex::copy(x_pr, pressure);
-        get_q(pressure, velocity, permeability, wells);
-
-        //concentration
-        conc_calc(concentration, porosity, source, velocity, wells, time);
-
-        //u_x
-        for(auto index = 0; index < n; ++index)
-        {
-            auto k = index / h_k;
-            auto tmp_loc = index - k * h_k;
-            auto j = tmp_loc / h_j;
-            auto i = tmp_loc - j * h_j;
-            bool is_border =  
-                (k == 0) || (k == n_z - 1) || (j == 0) || 
-                (j == n_y - 1) || (i == 0) || (i ==  n_x - 1); 
-
-            if(is_border)
-                rhs_u[index] = 0.;
-            else
-                rhs_u[index] = 
-                    sec_ord_mx(u_y, index, "xy") +
-                    sec_ord_mx(u_z, index, "xz") - 
-                    ( pressure[index + h_i] - pressure[index - h_i] ) /
-                    ( 2. * lame_2 );
-        }
-        vex::copy(rhs_u, rhs_dev_u);
-        solve_ux(rhs_dev_u, x_ux);
-        vex::copy(x_ux, u_x);
-        check_disp(u_x);
-
-        //u_y
-        for(auto index = 0; index < n; ++index)
-        {
-            auto k = index / h_k;
-            auto tmp_loc = index - k * h_k;
-            auto j = tmp_loc / h_j;
-            auto i = tmp_loc - j * h_j;
-            bool is_border =  
-                (k == 0) || (k == n_z - 1) || (j == 0) || 
-                (j == n_y - 1) || (i == 0) || (i ==  n_x - 1); 
-
-            if(is_border)
-                rhs_u[index] = 0.;
-            else
-                rhs_u[index] = 
-                    sec_ord_mx(u_x, index, "xy") +
-                    sec_ord_mx(u_z, index, "yz") - 
-                    ( pressure[index + h_j] - pressure[index - h_j] ) /
-                    ( 2. * lame_2 );
-        }
-        vex::copy(rhs_u, rhs_dev_u);
-        solve_ux(rhs_dev_u, x_uy);
-        vex::copy(x_uy, u_y);
-        check_disp(u_y);
-
-        //u_z
-        for(auto index = 0; index < n; ++index)
-        {
-            auto k = index / h_k;
-            auto tmp_loc = index - k * h_k;
-            auto j = tmp_loc / h_j;
-            auto i = tmp_loc - j * h_j;
-            bool is_border =  
-                (k == 0) || (k == n_z - 1) || (j == 0) || 
-                (j == n_y - 1) || (i == 0) || (i ==  n_x - 1); 
-
-            if(is_border)
-                rhs_u[index] = 0.;
-            else
-                rhs_u[index] = 
-                    sec_ord_mx(u_x, index, "xz") +
-                    sec_ord_mx(u_y, index, "yz") - 
-                    ( pressure[index + h_k] - pressure[index - h_k] ) /
-                    ( 2. * lame_2 );
-        }                   
-        vex::copy(rhs_u, rhs_dev_u);
-        solve_ux(rhs_dev_u, x_uz);
-        vex::copy(x_uz, u_z);
-        check_disp(u_z);
-
         //dilatation
-        for (auto k = 1, index = in_idx; k < n_z - 1; ++k)
-            for (auto j = 1; j < n_y - 1; ++j)
-                for (auto i = 1; i < n_x - 1; ++i, ++ index)
-                {
-                    double tmp = u_z[index + h_k] - u_z[index - h_k];
-                    tmp += u_y[index + h_j] - u_y[index - h_j];
-                    tmp += u_x[index + h_i] - u_z[index - h_i];
-                    tmp /= (2. * h);
+        dil_calc(disp, dilatation, dil_dt);
 
-                    if(t > 0)
-                        dil_dt[index] = ( tmp - dilatation[index] ) / h_t;
+        //porosity&source
+        por_calc(concentration, porosity, source, velocity, dil_dt);
 
-                    dilatation[index] = tmp;
-                }
-
-        //porosity&source&permeability
-        for(auto index = 0; index < 0; ++index)
-        {
-            auto vel_mod = sqrt( 
-                    pow(velocity.x[index]/q_0, 2.) + 
-                    pow(velocity.y[index]/q_0, 2.) +
-                    pow(velocity.z[index]/q_0, 2.) );
-
-            double tearoff = (vel_mod < q_0 ? 0. : alfa);
-
-            source[index] = beta * concentration[index] 
-                - tearoff * vel_mod / ( porosity[index] * ro_s ) 
-                + tearoff * q_0 / ro_s;
-
-            auto tmp = porosity[index];
-
-            porosity[index] += 0.5 * h_t * 
-                ( ( 1 - porosity[index] ) * dil_dt[index] - source[index] );
-
-            por_dt[index] = 2. * ( porosity[index] - tmp ) / h_t;
-
-            double s = 6 * ( 1 - porosity[index] ) / d;
-
-            permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
-        }
+        //permeability
+        per_calc(porosity, permeability);
 
         //write results
-        writer_step++;
-        if( writer_step == 100 )
-        {
-            std::string filename = "./data/pressure" + std::to_string(t) + ".vtk";
-            wrt_vtk(pressure, filename);
+        /*       writer_step++;
+                 if( writer_step == 100 )
+                 {
+                 std::string filename = "./data/pressure" + std::to_string(t) + ".vtk";
+                 wrt_vtk(pressure, filename);
 
-            filename = "./data/qx" + std::to_string(t) + ".vtk";
-            wrt_vtk(velocity.x, filename);
+                 filename = "./data/qx" + std::to_string(t) + ".vtk";
+                 wrt_vtk(velocity.x, filename);
 
-            filename = "./data/qy" + std::to_string(t) + ".vtk";
-            wrt_vtk(velocity.y, filename);
+                 filename = "./data/qy" + std::to_string(t) + ".vtk";
+                 wrt_vtk(velocity.y, filename);
 
-            filename = "./data/qz" + std::to_string(t) + ".vtk";
-            wrt_vtk(velocity.z, filename);
+                 filename = "./data/qz" + std::to_string(t) + ".vtk";
+                 wrt_vtk(velocity.z, filename);
 
-            filename = "./data/ux" + std::to_string(t) + ".vtk";
-            wrt_vtk(u_x, filename);
+                 filename = "./data/dil" + std::to_string(t) + ".vtk";
+                 wrt_vtk(dilatation, filename);
 
-            filename = "./data/uy" + std::to_string(t) + ".vtk";
-            wrt_vtk(u_y, filename);
+                 filename = "./data/porosity" + std::to_string(t) + ".vtk";
+                 wrt_vtk(porosity, filename);
 
-            filename = "./data/uz" + std::to_string(t) + ".vtk";
-            wrt_vtk(u_z, filename);
+                 filename = "./data/dphi_dt" + std::to_string(t) + ".vtk";
+                 wrt_vtk(por_dt, filename);
 
-            filename = "./data/dil" + std::to_string(t) + ".vtk";
-            wrt_vtk(dilatation, filename);
+                 filename = "./data/dil_dt" + std::to_string(t) + ".vtk";
+                 wrt_vtk(dil_dt, filename);
 
-            filename = "./data/porosity" + std::to_string(t) + ".vtk";
-            wrt_vtk(porosity, filename);
+                 filename = "./data/permeability" + std::to_string(t) + ".vtk";
+                 wrt_vtk(permeability, filename);
 
-            filename = "./data/dphi_dt" + std::to_string(t) + ".vtk";
-            wrt_vtk(por_dt, filename);
+                 filename = "./data/concentration" + std::to_string(t) + ".vtk";
+                 wrt_vtk(concentration, filename);
 
-            filename = "./data/dil_dt" + std::to_string(t) + ".vtk";
-            wrt_vtk(dil_dt, filename);
+                 writer_step = 0;
 
-            filename = "./data/permeability" + std::to_string(t) + ".vtk";
-            wrt_vtk(permeability, filename);
-
-            filename = "./data/concentration" + std::to_string(t) + ".vtk";
-            wrt_vtk(concentration, filename);
-
-            writer_step = 0;
-        }*/
+                 }*/
+    }
+    
+    for(auto index = 0; index < n; ++index)
+    {
+        u_x[index] = disp[3*index + 0];
+        u_y[index] = disp[3*index + 1];
+        u_z[index] = disp[3*index + 2];
     }
 
     prof.toc("time cycle");

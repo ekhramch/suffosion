@@ -13,7 +13,7 @@ const auto h_k = n_x * n_y; //for k+-1
 const double h = 1. / n_x; // spatial step
 const double h_t = 1. / n_t; // time step
 
-const double hour = 3600.; // time for undim, 1 hour, sec
+const double time_un = 3600.; // time for undim, 1 hour, sec
 const double length = 100.; // standart length of the layer, m
 const double depth = 500.; // depth of layer, m
 
@@ -42,21 +42,6 @@ const double p_bot = p_top; //minus hydrostatic
 const double p_bh = 2. * p_top; // pressure on the borehole
 const double r_c = 0.1 / length; // radius of borehole, undimensioned
 
-struct point
-{
-    int x;
-    int y;
-
-    point(int a=0, int b=0) : x(a), y(b) {}
-
-    public:
-    inline bool operator==(const point &rhs)
-    {
-        return ( (x == rhs.x) && (y == rhs.y) );
-    }
-
-};
-
 struct vec_3d
 {
     std::vector<double> x;
@@ -68,49 +53,50 @@ struct vec_3d
 
 int wrt_vtk(std::vector<double> &arr, const std::string filename);
 
-double get_nu(double i, double j, std::vector<point> wells);
+double get_nu(double i, double j, std::vector<int> wells);
 
 int vel_calc(std::vector<double> &pressure, vec_3d &velocity, 
-        std::vector<double> &permeability, std::vector<point> wells);
+        std::vector<double> &permeability, std::vector<int> wells);
 
-int conc_calc(std::vector<double> &concentration, std::vector<double> porosity,
-        std::vector<double> source, vec_3d &velocity,
-        std::vector<point> wells, int time);
+int conc_calc(std::vector<double> &conc_1, std::vector<double> &conc_2,
+        std::vector<double> porosity, std::vector<double> source, 
+        vec_3d &velocity, std::vector<int> wells);
 
 int build_press_mat(std::vector<int> &col, std::vector<double> &val, 
         std::vector<int> &ptr, std::vector<double> &rhs, 
-        std::vector<double> &permeability, std::vector<point> &wells);
-
-int build_u_mat(std::vector<int> &col, std::vector<double> &val, 
-        std::vector<int> &ptr, char dir);
+        std::vector<double> &permeability, std::vector<int> &wells);
 
 int drawLine(int x1, int y1, int x2, int y2, int z,std::vector<double> &matrix); 
 
-double sec_ord_mx(std::vector<double> &arr, int index, const std::string &dir);
-
-int check_disp(std::vector<double> &u);
-
 double get_perm(int index_1, int index_2, std::vector<double> &permeability);
 
-double get_press_coef(int index, std::vector<double> &permeability,
-        std::vector<point> &wells, const std::string &direction);
+double get_pr_coef(int index_1, int index_2, std::vector<double> &permeability,
+        std::vector<int> &wells);
 
-bool is_border(int index, char *flag);
+std::array<char, 3> check_border(int index);
 
 bool is_border(int index);
 
-bool is_well(int index, std::vector<point> &wells, char &flag);
-
-bool is_well(int index, std::vector<point> &wells);
+bool is_well(int index, std::vector<int> &wells);
 
 int place_val(double value, int index, 
         std::vector<int> &col, std::vector<double> &val);
 
 int build_disp_mat(std::vector<int> &col, std::vector<double> &val, 
-        std::vector<int> &ptr, std::vector<point> &wells);
+        std::vector<int> &ptr, std::vector<int> &wells);
 
 int fill_disp_rhs(std::vector<double> &pressure, std::vector<double> &rhs,
-        std::vector<point> &wells);
+        std::vector<int> &wells);
 
+int dil_calc(std::vector<double> &disp, 
+        std::vector<double> &dilatation, std::vector<double> &dil_dt);
+
+int por_calc(std::vector<double> &concentration, 
+        std::vector<double> porosity, std::vector<double> source,
+        vec_3d &velocity, std::vector<double> &dil_dt);
+
+int per_calc(std::vector<double> &porosity, std::vector<double> permeability);
+
+int add_well(int x, int y, std::vector<int> &wells);
 
 #endif
