@@ -51,7 +51,7 @@ struct vec_3d
     vec_3d(int n = 1) : x(n, 0.), y(n, 0.), z(n, 0.) {}
 };
 
-int wrt_vtk(std::vector<double> &arr, const std::string filename);
+int wrt_vtk(std::vector<double> &arr, const std::string &filename);
 
 double get_nu(double i, double j, std::vector<int> wells);
 
@@ -88,14 +88,15 @@ int build_disp_mat(std::vector<int> &col, std::vector<double> &val,
 int fill_disp_rhs(std::vector<double> &pressure, std::vector<double> &rhs,
         std::vector<int> &wells);
 
-int dil_calc(std::vector<double> &disp, 
-        std::vector<double> &dilatation, std::vector<double> &dil_dt);
+int dil_calc(std::vector<double> &disp, std::vector<double> &dilatation, 
+        std::vector<double> &dil_dt, std::vector<int> &wells);
 
 int por_calc(std::vector<double> &concentration, 
-        std::vector<double> porosity, std::vector<double> source,
-        vec_3d &velocity, std::vector<double> &dil_dt);
+        std::vector<double> &porosity, std::vector<double> &source,
+        vec_3d &velocity, std::vector<double> &dil_dt, std::vector<int> &wells);
 
-int per_calc(std::vector<double> &porosity, std::vector<double> permeability);
+int per_calc(std::vector<double> &porosity, std::vector<double> &permeability,
+        std::vector<int> &wells);
 
 int add_well(int x, int y, std::vector<int> &wells);
 

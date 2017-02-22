@@ -18,7 +18,7 @@
 
 using namespace std;
 
-int wrt_vtk(vector<double> &arr, const string filename)
+int wrt_vtk(vector<double> &arr, const string &filename)
 {
     fstream f(filename.c_str(), ios::out);
 
@@ -128,34 +128,36 @@ int vel_calc(vector<double> &pressure,
 
     for(auto index = 0; index < n; ++index)
     {
-        border_flag = check_border(index);
+        if(!is_well(index, wells) && !is_border(index))
+        {
+            //border_flag = check_border(index);
 
-        if(border_flag[0] == 0)
+            //if(border_flag[0] == 0)
             if(pressure[index] > pressure[index - h_i])
                 velocity.x[index] = (pressure[index + h_i] - pressure[index]);
             else
                 velocity.x[index] = (pressure[index] - pressure[index - h_i]);
 
-        if(border_flag[1] == 0)
+            //if(border_flag[1] == 0)
             if(pressure[index] > pressure[index - h_j])
                 velocity.y[index] = (pressure[index + h_j] - pressure[index]);
             else
                 velocity.y[index] = (pressure[index] - pressure[index - h_j]);
 
-        if(border_flag[2] == 0)
+            // if(border_flag[2] == 0)
             if(pressure[index] > pressure[index - h_k])
                 velocity.z[index] = (pressure[index + h_k] - pressure[index]);
             else
                 velocity.z[index] = (pressure[index] - pressure[index - h_k]);
 
 
-        velocity.x[index] *= -permeability[index] / ( h * length );
+            velocity.x[index] *= -permeability[index] / ( h * length );
 
-        velocity.y[index] *= -permeability[index] / ( h * length );
+            velocity.y[index] *= -permeability[index] / ( h * length );
 
-        velocity.z[index] *= -permeability[index] / ( h * length );
+            velocity.z[index] *= -permeability[index] / ( h * length );
+        }
     }
-
     return 0;
 }
 
@@ -631,18 +633,25 @@ int fill_disp_rhs(vector<double> &pressure,
     return 0;
 }
 
-int dil_calc(vector<double> &disp, 
-        vector<double> &dilatation, vector<double> &dil_dt)
+int dil_calc(vector<double> &disp, vector<double> &dilatation, 
+        vector<double> &dil_dt, vector<int> &wells)
 {
     double tmp = 0.;
 
     for(auto index = 0; index < n; ++index)
     {
-        if( !(is_border(index)) )
+        tmp = 0.;
+
+        if( !(is_border(index)) && !(is_well(index, wells)) )
         {
-            tmp  = disp[X(index + h_i)] - disp[X(index - h_i)];
-            tmp += disp[Y(index + h_j)] - disp[Y(index - h_j)];
+            if(!(is_well(index + h_i, wells)) && !(is_well(index - h_i, wells)))
+                tmp  += disp[X(index + h_i)] - disp[X(index - h_i)];
+            
+            if(!(is_well(index + h_j, wells)) && !(is_well(index - h_j, wells)))
+                tmp += disp[Y(index + h_j)] - disp[Y(index - h_j)];
+    
             tmp += disp[Z(index + h_k)] - disp[Z(index - h_k)];
+
             tmp /= (2. * h);
 
             dil_dt[index] = ( tmp - dilatation[index] ) / h_t;
@@ -654,48 +663,62 @@ int dil_calc(vector<double> &disp,
     return 0;
 }
 
-int por_calc(vector<double> &concentration, vector<double> porosity, 
-        vector<double> source, vec_3d &velocity, vector<double> dil_dt)
+
+int por_calc(vector<double> &concentration, vector<double> &porosity, 
+        vector<double> &source, vec_3d &velocity, 
+        vector<double> &dil_dt, vector<int> &wells)
 {
     for(auto index = 0; index < n; ++index)
     {
-        auto vel_mod = sqrt( 
-                pow(velocity.x[index]/q_0, 2.) + 
-                pow(velocity.y[index]/q_0, 2.) +
-                pow(velocity.z[index]/q_0, 2.) );
+        if( !(is_well(index, wells)) )
+        {
+            auto vel_mod = sqrt( 
+                    pow(velocity.x[index], 2.) + 
+                    pow(velocity.y[index], 2.) +
+                    pow(velocity.z[index], 2.) );
 
-        double tearoff = (vel_mod < q_0 ? 0. : alfa);
+            double tearoff = (vel_mod < q_0 ? 0. : alfa);
 
-        source[index] = beta * concentration[index] 
-            - tearoff * vel_mod / ( porosity[index] * ro_s ) 
-            + tearoff * q_0 / ro_s;
+            source[index] = beta * concentration[index] 
+                - tearoff * vel_mod / ( porosity[index] * ro_s ) 
+                + tearoff * q_0 / ro_s;
 
-        auto tmp = porosity[index];
-
-        porosity[index] += 0.5 * h_t * 
-            ( ( 1 - porosity[index] ) * dil_dt[index] - source[index] );
+/*            porosity[index] += 0.5 * h_t * 
+                ( ( 1 - porosity[index] ) * dil_dt[index] - source[index] );*/
+ 
+            porosity[index] = ( porosity[index] 
+                    + h_t * time_un *( source[index] ) ) / 
+                (1. + h_t * dil_dt[index]);
+        }
     }
 
     return 0;
 }
 
-int per_calc(vector<double> &porosity, vector<double> permeability)
+
+int per_calc(vector<double> &porosity, vector<double> &permeability, 
+        vector<int> &wells)
 {
     for(auto index = 0; index < n; ++index)
-    {
-        double s = 6 * ( 1 - porosity[index] ) / d;
+    {        
+        if( !(is_well(index, wells)) )
+        {
+            double s = 6 * ( 1 - porosity[index] ) / d;
 
-        permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
+            permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
+        }
     }
 
     return 0;
 }
+
 
 int add_well(int x, int y, vector<int> &wells)
 {
     for(auto k = 0; k < n_z; ++k)
         wells.push_back(x + y * n_x + k * n_x * n_y);
 }
+
 
 int drawLine(int x1, int y1, int x2, int y2, int z, std::vector<double> &matrix) 
 {

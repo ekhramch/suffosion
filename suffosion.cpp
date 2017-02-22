@@ -84,6 +84,7 @@ int main(int argc, char *argv[])
     vex::vector<double> x_uy(ctx.queue(), u_y); // unknown vector on device
     vex::vector<double> x_uz(ctx.queue(), u_z); // unknown vector on device
     vex::vector<double> x_u(ctx.queue(), disp);
+    std::string filename;
 
     //other variables
     const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ) * n_t; 
@@ -105,8 +106,8 @@ int main(int argc, char *argv[])
         amgcl::backend::vexcl<double>,
         amgcl::coarsening::smoothed_aggregation,
         amgcl::relaxation::spai0
-        //amgcl::coarsening::ruge_stuben,
-        //amgcl::relaxation::damped_jacobi
+            //amgcl::coarsening::ruge_stuben,
+            //amgcl::relaxation::damped_jacobi
             >,
         amgcl::solver::gmres<
             amgcl::backend::vexcl<double>
@@ -127,7 +128,7 @@ int main(int argc, char *argv[])
     solve(rhs_dev_pr, x_pr);
     vex::copy(x_pr, pressure);   
     prof.toc("solve press matrix");
-    
+
     int n_u = 3 * n;
     col_u.reserve(5 * n_u);
     val_u.reserve(5 * n_u);
@@ -149,12 +150,12 @@ int main(int argc, char *argv[])
 
     std::cout << "iters = " << iters << std::endl;
     std::cout << "error = " << error << std::endl;
-        
-    dil_calc(disp, dilatation, dil_dt);
+
+    dil_calc(disp, dilatation, dil_dt, wells);
     std::fill(dil_dt.begin(), dil_dt.end(), 0.);
 
     prof.tic("time cycle");
-    for(auto t = 0; t < 0; ++t)
+    for(auto t = 0; t < 100; ++t)
     {
         //pressure
         build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, wells);
@@ -163,66 +164,55 @@ int main(int argc, char *argv[])
         solve(rhs_dev_pr, x_pr);
         vex::copy(x_pr, pressure);
 
+        //displacements
+        fill_disp_rhs(pressure, rhs_u, wells);
+        vex::copy(rhs_u, rhs_dev_u);
+        vex::copy(x_u, disp);
+ 
+        //dilatation
+        dil_calc(disp, dilatation, dil_dt, wells);
+       
         //velocity
         vel_calc(pressure, velocity, permeability, wells);
 
         //concentration
         tmp_conc = concentration;
         conc_calc(concentration, tmp_conc, porosity, source, velocity, wells);
-
-        //displacements
-        fill_disp_rhs(pressure, rhs_u, wells);
-        vex::copy(rhs_u, rhs_dev_u);
-        vex::copy(x_u, disp);
-        
-        //dilatation
-        dil_calc(disp, dilatation, dil_dt);
+        conc_calc(tmp_conc, concentration, porosity, source, velocity, wells);
 
         //porosity&source
-        por_calc(concentration, porosity, source, velocity, dil_dt);
+        por_calc(concentration, porosity, source, velocity, dil_dt, wells);
 
         //permeability
-        per_calc(porosity, permeability);
+        per_calc(porosity, permeability, wells);
 
         //write results
-        /*       writer_step++;
-                 if( writer_step == 100 )
-                 {
-                 std::string filename = "./data/pressure" + std::to_string(t) + ".vtk";
-                 wrt_vtk(pressure, filename);
+        if( (writer_step++) == 100 )
+        {
+            filename = std::to_string(t) + ".vtk";
 
-                 filename = "./data/qx" + std::to_string(t) + ".vtk";
-                 wrt_vtk(velocity.x, filename);
+            wrt_vtk(pressure, "./data/pressure" + filename);
 
-                 filename = "./data/qy" + std::to_string(t) + ".vtk";
-                 wrt_vtk(velocity.y, filename);
+            wrt_vtk(velocity.x, "./data/qx" + filename);
+            wrt_vtk(velocity.y, "./data/qy" + filename);
+            wrt_vtk(velocity.z, "./data/qz" + filename);
 
-                 filename = "./data/qz" + std::to_string(t) + ".vtk";
-                 wrt_vtk(velocity.z, filename);
+            wrt_vtk(dilatation, "./data/dil" + filename);
 
-                 filename = "./data/dil" + std::to_string(t) + ".vtk";
-                 wrt_vtk(dilatation, filename);
+            wrt_vtk(porosity, "./data/porosity" + filename);
 
-                 filename = "./data/porosity" + std::to_string(t) + ".vtk";
-                 wrt_vtk(porosity, filename);
+            wrt_vtk(por_dt, "./data/dphi_dt" + filename);
 
-                 filename = "./data/dphi_dt" + std::to_string(t) + ".vtk";
-                 wrt_vtk(por_dt, filename);
+            wrt_vtk(dil_dt, "./data/dil_dt" + filename);
 
-                 filename = "./data/dil_dt" + std::to_string(t) + ".vtk";
-                 wrt_vtk(dil_dt, filename);
+            wrt_vtk(permeability, "./data/permeability" + filename);
 
-                 filename = "./data/permeability" + std::to_string(t) + ".vtk";
-                 wrt_vtk(permeability, filename);
+            wrt_vtk(concentration, "./data/concentration" + filename);
 
-                 filename = "./data/concentration" + std::to_string(t) + ".vtk";
-                 wrt_vtk(concentration, filename);
-
-                 writer_step = 0;
-
-                 }*/
+            writer_step = 0;
+        }
     }
-    
+
     for(auto index = 0; index < n; ++index)
     {
         u_x[index] = disp[3*index + 0];
@@ -237,47 +227,31 @@ int main(int argc, char *argv[])
     for(auto q = ctx.queue().begin(); q != ctx.queue().end(); ++q)
         q->finish();
 
-    std::string filename = "./data/pressure_fin.vtk";
-    wrt_vtk(pressure, filename);
+    filename = "_fin.vtk";
 
-    filename = "./data/qx_fin.vtk";
-    wrt_vtk(velocity.x, filename);
+    wrt_vtk(pressure, "./data/pressure" + filename);
 
-    filename = "./data/qy_fin.vtk";
-    wrt_vtk(velocity.y, filename);
+    wrt_vtk(velocity.x, "./data/qx" + filename);
+    wrt_vtk(velocity.y, "./data/qy" + filename);
+    wrt_vtk(velocity.z, "./data/qz" + filename);
 
-    filename = "./data/qz_fin.vtk";
-    wrt_vtk(velocity.z, filename);
+    wrt_vtk(u_x, "./data/ux" + filename);
+    wrt_vtk(u_y, "./data/uy" + filename);
+    wrt_vtk(u_z, "./data/uz" + filename);
 
-    filename = "./data/ux_fin.vtk";
-    wrt_vtk(u_x, filename);
+    wrt_vtk(dilatation, "./data/dil" + filename);
 
-    filename = "./data/uy_fin.vtk";
-    wrt_vtk(u_y, filename);
+    wrt_vtk(porosity, "./data/porosity" + filename);
 
-    filename = "./data/uz_fin.vtk";
-    wrt_vtk(u_z, filename);
+    wrt_vtk(por_dt, "./data/dphi_dt" + filename);
 
-    filename = "./data/dil_fin.vtk";
-    wrt_vtk(dilatation, filename);
+    wrt_vtk(dil_dt, "./data/dil_dt" + filename);
 
-    filename = "./data/porosity_fin.vtk";
-    wrt_vtk(porosity, filename);
+    wrt_vtk(permeability, "./data/permeability" + filename);
 
-    filename = "./data/por_dt_fin.vtk";
-    wrt_vtk(por_dt, filename);
+    wrt_vtk(concentration, "./data/concentration" + filename);
 
-    filename = "./data/dil_dt_fin.vtk";
-    wrt_vtk(dil_dt, filename);
-
-    filename = "./data/permeability_fin.vtk";
-    wrt_vtk(permeability, filename);
-
-    filename = "./data/concentration_fin.vtk";
-    wrt_vtk(concentration, filename);
-
-    filename = "./data/source_fin.vtk";
-    wrt_vtk(source, filename);
+    wrt_vtk(source, "./data/source" + filename);
 
     return 0;
 }
