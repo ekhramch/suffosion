@@ -1,16 +1,15 @@
 #include <vector>
-#include <map>
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
-#include <math.h>
 #include <iterator>
 #include <algorithm>
-#include <string>
-#include "pr_util.h"
 #include <sstream>
 #include <assert.h>
 #include "omp.h"
+#include <cmath>
+#include <string>
+#include "pr_util.h"
 
 #define X(i)(3*(i) + 0)
 #define Y(i)(3*(i) + 1)
@@ -58,12 +57,12 @@ double get_nu(double i, double j, vector<int> wells)
 {
     double sum = 0.;
 
-    for(auto index = 0; index < wells.size(); index += n_z)
+    for(int index = 0; index < wells.size(); index += n_z)
     {
-        auto z = index / (n_x * n_y);
-        auto tmp_loc = index - z * n_x * n_y;
-        auto y = tmp_loc / n_x;
-        auto x = tmp_loc - y * n_x;
+        int z = index / (n_x * n_y);
+        int tmp_loc = index - z * n_x * n_y;
+        int y = tmp_loc / n_x;
+        int x = tmp_loc - y * n_x;
 
         double r_2 = pow(double(x) - i, 2.) + pow(double(y) - j, 2.);
 
@@ -82,99 +81,134 @@ double get_nu(double i, double j, vector<int> wells)
 }
 
 int conc_calc(vector<double> &conc_1, vector<double> &conc_2, 
-        vector<double> porosity, vector<double> source, 
-        vec_3d &velocity, vector<int> wells)
+        vector<double> porosity, vector<double> source, vec_3d &flow, 
+        vector<int> wells)
 {   
-    array<char, 3> border_flag = {0, 0, 0};
+    boost::array<char, 3> border_flag = {0, 0, 0};
     double tmp[3] = {0., 0., 0.};
 
-    for(auto index = 0; index < n; ++index)
+    for(int index = 0; index < n; ++index)
     {
-        tmp[0] = tmp[1] = tmp[2] = 0.;
+        if(!(is_well(index, wells)))
+        {
+            tmp[0] = tmp[1] = tmp[2] = 0.;
 
-        int s_x = ( velocity.x[index] > 0 ? 0 : 1);
-        int s_y = ( velocity.y[index] > 0 ? 0 : 1);
-        int s_z = ( velocity.z[index] > 0 ? 0 : 1);
+            border_flag = check_border(index);
 
-        border_flag = check_border(index);
+            //x-axis
+            if(border_flag[0] != 'w')
+                tmp[0] = 
+                    flow.x_left[index] * (conc_1[index] - conc_1[index - h_i]);
 
-        if(border_flag[0] == 0)
-            tmp[0] = velocity.x[index] * 
-                (conc_1[index + s_x * h_i] - conc_1[index - (!s_x) * h_i]);
+            if(border_flag[0] != 'e')
+                tmp[0] += 
+                    flow.x_right[index] * (conc_1[index + h_i] - conc_1[index]);
 
-        if(border_flag[1] == 0)
-            tmp[1] = velocity.y[index] * 
-                (conc_1[index + s_y * h_j] - conc_1[index - (!s_y) * h_j]);
+            //y-axis
+            if(border_flag[1] != 's')
+                tmp[1] = 
+                    flow.y_left[index] * (conc_1[index] - conc_1[index - h_j]);
+
+            if(border_flag[1] != 'n')
+                tmp[1] += 
+                    flow.y_right[index] * (conc_1[index + h_j] - conc_1[index]);
+
+            //z-axis
+            if(border_flag[2] != 'b')
+                tmp[2] = 
+                    flow.z_left[index] * (conc_1[index] - conc_1[index - h_k]);
+
+            if(border_flag[2] != 0)
+                tmp[2] += 
+                    flow.z_right[index] * (conc_1[index + h_k] - conc_1[index]);
 
 
-        if(border_flag[2] == 0)
-            tmp[2] = velocity.z[index] * 
-                (conc_1[index + s_z * h_k] - conc_1[index - (!s_z) * h_k]);
+            conc_2[index] = 
+                (conc_1[index] + conc_2[index]) / 2. +
+                ( h_t * 0.5 * time_un / porosity[index] ) * 
+                ( -source[index] - (tmp[0] + tmp[1] + tmp[2]) / (2. * length * h) );
 
-
-        conc_2[index] = 
-            (conc_1[index] + conc_2[index]) / 2. +
-            ( h_t * 0.5 * time_un / porosity[index] ) * 
-            ( -source[index] - (tmp[0] + tmp[1] + tmp[2]) / (length * h) );
+            if(conc_2[index] < 0.01)
+                conc_2[index] = 0.;
+        }
+        else
+            conc_1[index] = conc_2[index] = 0.;
     }
 
     return 0;
 }
 
-int vel_calc(vector<double> &pressure, 
-        vec_3d &velocity, vector<double> &permeability, vector<int> wells)
+int flow_calc(vector<double> &pressure, vec_3d &flow, 
+        vector<double> &permeability, vector<int> wells)
 {
-    array<char, 3> border_flag = {0, 0, 0};
+    boost::array<char, 3> border_flag = {0, 0, 0};
 
-    for(auto index = 0; index < n; ++index)
+    for(int index = 0; index < n; ++index)
     {
-        if(!is_well(index, wells) && !is_border(index))
-        {
-            //border_flag = check_border(index);
+        border_flag = check_border(index);
 
-            //if(border_flag[0] == 0)
-            if(pressure[index] > pressure[index - h_i])
-                velocity.x[index] = (pressure[index + h_i] - pressure[index]);
-            else
-                velocity.x[index] = (pressure[index] - pressure[index - h_i]);
+        //x-axis flow
+        if((border_flag[0] != 'w'))
+            flow.x_left[index] = pressure[index] - pressure[index - h_i];
+        else
+            flow.x_left[index] = 0.;
 
-            //if(border_flag[1] == 0)
-            if(pressure[index] > pressure[index - h_j])
-                velocity.y[index] = (pressure[index + h_j] - pressure[index]);
-            else
-                velocity.y[index] = (pressure[index] - pressure[index - h_j]);
+        if((border_flag[0] != 'e'))
+            flow.x_right[index] = pressure[index + h_i] - pressure[index];
+        else
+            flow.x_right[index] = 0.;
 
-            // if(border_flag[2] == 0)
-            if(pressure[index] > pressure[index - h_k])
-                velocity.z[index] = (pressure[index + h_k] - pressure[index]);
-            else
-                velocity.z[index] = (pressure[index] - pressure[index - h_k]);
+        //y-axis flow
+        if((border_flag[1] != 's'))
+            flow.y_left[index] = pressure[index] - pressure[index - h_j];
+        else
+            flow.y_left[index] = 0.;
 
+        if((border_flag[1] != 'n'))
+            flow.y_right[index] = pressure[index + h_j] - pressure[index];
+        else
+            flow.y_right[index] = 0.;
 
-            velocity.x[index] *= -permeability[index] / ( h * length );
+        //z-axis flow
+        if((border_flag[2] != 'b'))
+            flow.z_left[index] = pressure[index] - pressure[index - h_k];
+        else
+            flow.z_left[index] = 0.;
 
-            velocity.y[index] *= -permeability[index] / ( h * length );
+        if((border_flag[2] != 't'))
+            flow.z_right[index] = pressure[index + h_k] - pressure[index];
+        else
+            flow.z_right[index] = 0.;
 
-            velocity.z[index] *= -permeability[index] / ( h * length );
-        }
+        flow.x_left[index] *= (-permeability[index] / (h * length));
+        flow.y_left[index] *= (-permeability[index] / (h * length));
+        flow.z_left[index] *= (-permeability[index] / (h * length));
+
+        flow.x_right[index] *= (-permeability[index] / (h * length));
+        flow.y_right[index] *= (-permeability[index] / (h * length));
+        flow.z_right[index] *= (-permeability[index] / (h * length));
     }
     return 0;
 }
 
 int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr, 
-        vector<double> &rhs, vector<double> &permeability, vector<int> &wells)
+        vector<double> &rhs, vector<double> &permeability, vector<int> &wells,
+        vector<double> &source, vector<double> &dil_dt)
 {    
     std::fill(rhs.begin(), rhs.end(), 0.);
+
     col.clear();  ptr.clear(); val.clear();  
     
     ptr.push_back(0);
 
-    array<char, 3> border_flag = {0, 0, 0};
+    boost::array<char, 3> border_flag = {0, 0, 0};
 
     double k_f, k_b, j_f, j_b, i_f, i_b, cntr;
 
-    for(auto index = 0; index < n; ++index)
-    {    
+    for(int index = 0; index < n; ++index)
+    {
+        rhs[index] = h * h * (time_un * source[index] - dil_dt[index]);
+
         cntr = k_f = k_b = j_f = j_b = i_b = i_f = 0.;
 
         border_flag = check_border(index);
@@ -290,24 +324,23 @@ double get_pr_coef(int index_1, int index_2, vector<double> &permeability,
     if(dy)
         tmp *= get_nu(double(i_1), double(j_1) + dy * 0.5, wells);
 
+
     return -tmp;
 }
 
-array<char, 3> check_border(int index)
+boost::array<char, 3> check_border(int index)
 {
-    auto k = index / (n_x*n_y);
-    auto tmp_loc = index - k*n_x*n_y;
-    auto j = tmp_loc/n_x;
-    auto i = tmp_loc - j*n_x;
-
-    array<char, 3> flag = {0, 0, 0};
+    int k = index / (n_x*n_y);
+    int tmp_loc = index - k*n_x*n_y;
+    int j = tmp_loc/n_x;
+    int i = tmp_loc - j*n_x;
+    boost::array<char, 3> flag = {0, 0, 0};
 
     if(i == 0)
         flag[0] = 'w';
     
     if(i == n_x - 1)
         flag[0] = 'e';
-
 
     if(j == 0)
         flag[1] = 's';
@@ -326,10 +359,10 @@ array<char, 3> check_border(int index)
 
 bool is_border(int index)
 {
-    auto k = index / (n_x*n_y);
-    auto tmp_loc = index - k*n_x*n_y;
-    auto j = tmp_loc/n_x;
-    auto i = tmp_loc - j*n_x;
+    int k = index / (n_x*n_y);
+    int tmp_loc = index - k*n_x*n_y;
+    int j = tmp_loc/n_x;
+    int i = tmp_loc - j*n_x;
 
     return ( (k == 0) || (k == n_z - 1) || (j == 0) || (j == n_y - 1) 
             || (i == 0) || (i == n_x - 1) );
@@ -356,11 +389,11 @@ int build_disp_mat(vector<int> &col,vector<double> &val,
 {
     double c_1 = 1. + lame_1/lame_2;
     double c_2= 1. + c_1;          
-    
+
     ptr.push_back(0);
     int point;
 
-    for(auto index = 0; index < n; ++index)
+    for(int index = 0; index < n; ++index)
     {
         if (is_border(index) || is_well(index, wells)) 
         {
@@ -441,9 +474,8 @@ int build_disp_mat(vector<int> &col,vector<double> &val,
 
             //i,j,k+1
             point = index + h_k;
-            if(!is_well(point, wells))
-                //u_x
-                place_val(-1., X(point), col, val);
+            //u_x
+            place_val(-1., X(point), col, val);
 
             ptr.push_back(col.size());
 
@@ -487,7 +519,7 @@ int build_disp_mat(vector<int> &col,vector<double> &val,
             place_val(2. * c_2 + 4., Y(point), col, val);
             //u_z
             place_val(c_1, Z(point), col, val);           
-            
+
             //i+1,j,k
             point = index + h_i;
             if(!is_well(point, wells))
@@ -586,13 +618,10 @@ int build_disp_mat(vector<int> &col,vector<double> &val,
 
             //i,j,k+1
             point = index + h_k;
-            if(!is_well(point, wells))
-            {
-                //u_y
-                place_val(-c_1, Y(point), col, val);         
-                //u_z
-                place_val(-c_2, Z(point), col, val);         
-            }
+            //u_y
+            place_val(-c_1, Y(point), col, val);         
+            //u_z
+            place_val(-c_2, Z(point), col, val);         
 
             ptr.push_back(col.size());
         }
@@ -605,7 +634,7 @@ int fill_disp_rhs(vector<double> &pressure,
 {
     double tmp = 0.;
 
-    for(auto index = 0; index < n; ++index)
+    for(int index = 0; index < n; ++index)
     {
         if( !(is_well(index, wells)) && !(is_border(index)) )
         {
@@ -628,6 +657,8 @@ int fill_disp_rhs(vector<double> &pressure,
             rhs[3*index + 2] = -h * tmp * length / lame_2;
 
         }
+        else
+            rhs[index] = 0.;
     }
 
     return 0;
@@ -638,14 +669,14 @@ int dil_calc(vector<double> &disp, vector<double> &dilatation,
 {
     double tmp = 0.;
 
-    for(auto index = 0; index < n; ++index)
+    for(int index = 0; index < n; ++index)
     {
         tmp = 0.;
 
         if( !(is_border(index)) && !(is_well(index, wells)) )
         {
             if(!(is_well(index + h_i, wells)) && !(is_well(index - h_i, wells)))
-                tmp  += disp[X(index + h_i)] - disp[X(index - h_i)];
+                tmp += disp[X(index + h_i)] - disp[X(index - h_i)];
             
             if(!(is_well(index + h_j, wells)) && !(is_well(index - h_j, wells)))
                 tmp += disp[Y(index + h_j)] - disp[Y(index - h_j)];
@@ -658,6 +689,11 @@ int dil_calc(vector<double> &disp, vector<double> &dilatation,
 
             dilatation[index] = tmp;
         }
+        else
+        {
+            dilatation[index] = 0.;
+            dil_dt[index] = 0.;
+        }
     }
 
     return 0;
@@ -665,17 +701,22 @@ int dil_calc(vector<double> &disp, vector<double> &dilatation,
 
 
 int por_calc(vector<double> &concentration, vector<double> &porosity, 
-        vector<double> &source, vec_3d &velocity, 
+        vector<double> &source, vec_3d &flow, 
         vector<double> &dil_dt, vector<int> &wells)
 {
-    for(auto index = 0; index < n; ++index)
+    for(int index = 0; index < n; ++index)
     {
         if( !(is_well(index, wells)) )
         {
-            auto vel_mod = sqrt( 
-                    pow(velocity.x[index], 2.) + 
-                    pow(velocity.y[index], 2.) +
-                    pow(velocity.z[index], 2.) );
+            double vel_mod = 
+                sqrt( 
+                        pow(flow.x_left[index], 2.) + 
+                        pow(flow.y_left[index], 2.) +
+                        pow(flow.z_left[index], 2.) +
+                        pow(flow.x_right[index], 2.) + 
+                        pow(flow.y_right[index], 2.) +
+                        pow(flow.z_right[index], 2.) 
+                    );
 
             double tearoff = (vel_mod < q_0 ? 0. : alfa);
 
@@ -683,13 +724,17 @@ int por_calc(vector<double> &concentration, vector<double> &porosity,
                 - tearoff * vel_mod / ( porosity[index] * ro_s ) 
                 + tearoff * q_0 / ro_s;
 
-/*            porosity[index] += 0.5 * h_t * 
-                ( ( 1 - porosity[index] ) * dil_dt[index] - source[index] );*/
- 
-            porosity[index] = ( porosity[index] 
-                    + h_t * time_un *( source[index] ) ) / 
-                (1. + h_t * dil_dt[index]);
+            porosity[index] += 
+                h_t * ( 
+                        ( 1. - porosity[index] ) * dil_dt[index] 
+                        - time_un * source[index] 
+                      ); 
+
+            if(porosity[index] > 0.7)
+                porosity[index] = 0.7;
         }
+        else
+            porosity[index] = fi_0;
     }
 
     return 0;
@@ -699,7 +744,7 @@ int por_calc(vector<double> &concentration, vector<double> &porosity,
 int per_calc(vector<double> &porosity, vector<double> &permeability, 
         vector<int> &wells)
 {
-    for(auto index = 0; index < n; ++index)
+    for(int index = 0; index < n; ++index)
     {        
         if( !(is_well(index, wells)) )
         {
@@ -707,6 +752,8 @@ int per_calc(vector<double> &porosity, vector<double> &permeability,
 
             permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
         }
+        else
+            permeability[index] = 0.;
     }
 
     return 0;
@@ -715,7 +762,7 @@ int per_calc(vector<double> &porosity, vector<double> &permeability,
 
 int add_well(int x, int y, vector<int> &wells)
 {
-    for(auto k = 0; k < n_z; ++k)
+    for(int k = 0; k < n_z; ++k)
         wells.push_back(x + y * n_x + k * n_x * n_y);
 }
 

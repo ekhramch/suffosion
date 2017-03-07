@@ -15,14 +15,17 @@
 
 /*AMGCL include section*/
 #include <amgcl/amg.hpp>
+#include <amgcl/value_type/static_matrix.hpp>
+#include <amgcl/adapter/block_matrix.hpp>
 #include <amgcl/make_solver.hpp>
 #include <amgcl/backend/vexcl.hpp>
+#include <amgcl/backend/vexcl_static_matrix.hpp>
 #include <amgcl/adapter/crs_tuple.hpp>
-#include <amgcl/coarsening/ruge_stuben.hpp>
 #include <amgcl/coarsening/smoothed_aggregation.hpp>
 #include <amgcl/relaxation/damped_jacobi.hpp>
 #include <amgcl/relaxation/spai0.hpp>
 #include <amgcl/relaxation/ilu0.hpp>
+#include <amgcl/solver/bicgstab.hpp>
 #include <amgcl/solver/gmres.hpp>
 #include <amgcl/profiler.hpp>
 #include <amgcl/io/mm.hpp>
@@ -39,6 +42,9 @@ using amgcl::prof;
 
 int main(int argc, char *argv[])
 {
+    typedef amgcl::static_matrix<double, 3, 3> mat_type;
+    typedef amgcl::static_matrix<double, 3, 1> vec_type;
+
     // Initialize VexCL context.
     vex::Context ctx( vex::Filter::Env && vex::Filter::DoublePrecision );
 
@@ -50,14 +56,17 @@ int main(int argc, char *argv[])
 
     std::cout << ctx << std::endl;
 
+    vex::scoped_program_header header(ctx,
+            amgcl::backend::vexcl_static_matrix_declaration<double,3>());
+
     //Vectors of variables
     std::vector<double> pressure(n, p_top);
-    vec_3d velocity(n); //velocities, x,y,z components
+    vec_3d flow(n); //velocities, x,y,z components
     std::vector<double> source(n, 0.);//source of solid phase
     std::vector<double> concentration(n, c_0); 
     std::vector<double> tmp_conc(n, c_0); 
     std::vector<double> permeability(n, 0.);
-    std::vector<double> matrix(n, 1.); //matrix of permeability
+    std::vector<double> matrix(n, 0.); //matrix of permeability
     std::vector<double> u_x(n, 0.), u_y(n, 0.), u_z(n, 0.); //displacements
     std::vector<double> dilatation(n, 0.); 
     std::vector<double> dil_dt(n, 0.); //dilatation time derivative
@@ -79,109 +88,136 @@ int main(int argc, char *argv[])
     std::vector<int>    ptr_u; //points to the start of each row in col_pr 
     std::vector<double> rhs_u(3 * n, 0.); // right-hand side 
     std::vector<double> disp(3 * n, 0.); 
-    vex::vector<double> rhs_dev_u(ctx.queue(), rhs_u); // rhs on device
-    vex::vector<double> x_ux(ctx.queue(), u_x); // unknown vector on device
-    vex::vector<double> x_uy(ctx.queue(), u_y); // unknown vector on device
-    vex::vector<double> x_uz(ctx.queue(), u_z); // unknown vector on device
-    vex::vector<double> x_u(ctx.queue(), disp);
+    vex::vector<vec_type> rhs_dev_u(ctx.queue(), n); // rhs on device
+    vex::vector<vec_type> x_u(ctx.queue(), n);
+    amgcl::backend::clear(x_u);
     std::string filename;
 
     //other variables
     const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ) * n_t; 
-    int writer_step = 0;
+    int writer_step = 99;
 
     add_well(n_x/2, n_y/2, wells);
 
     std::sort(wells.begin(), wells.end());
 
-    for(auto i = 0; i < n; ++i)
-    {
-        double s = 6 * ( 1 - porosity[i] ) / d;
-        permeability[i] = pow(porosity[i], 3) / ( T * T * s * s * eta);
+    for(int index = 0; index < n; ++index)
+    {        
+        if( !(is_well(index, wells)) )
+        {
+            double s = 6 * ( 1 - porosity[index] ) / d;
+
+            permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
+        }
+        else
+            permeability[index] = 0.;
     }
+
+
+    // Define the AMG type:
+    typedef amgcl::backend::vexcl<double>   SBackend;
+    typedef amgcl::backend::vexcl<mat_type> BBackend;
+
+    typedef amgcl::make_solver<
+        amgcl::amg<
+        BBackend,
+        amgcl::coarsening::smoothed_aggregation,
+        amgcl::relaxation::damped_jacobi
+            >,
+        amgcl::solver::bicgstab< BBackend >
+            > USolver;
 
     // Define the AMG type:
     typedef amgcl::make_solver<
         amgcl::amg<
-        amgcl::backend::vexcl<double>,
+        SBackend,
         amgcl::coarsening::smoothed_aggregation,
         amgcl::relaxation::spai0
-            //amgcl::coarsening::ruge_stuben,
-            //amgcl::relaxation::damped_jacobi
             >,
-        amgcl::solver::gmres<
-            amgcl::backend::vexcl<double>
-            >
-            > Solver;
+        amgcl::solver::gmres< SBackend >
+            > PSolver;
 
     col_pr.reserve(7 * n);
     val_pr.reserve(7 * n);
     ptr_pr.reserve(n);
 
+    int    iters;
+    double error;
+
     prof.tic("build press matrix");
-    build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells);
-    Solver solve( boost::tie(n, ptr_pr, col_pr, val_pr) );
+    build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells,
+            source, dil_dt);
+
+    PSolver solve_press( boost::tie(n, ptr_pr, col_pr, val_pr) );
     prof.toc("build press matrix");
 
     prof.tic("solve press matrix");
     vex::copy(rhs_pr, rhs_dev_pr);
-    solve(rhs_dev_pr, x_pr);
+    boost::tie(iters, error) = solve_press(rhs_dev_pr, x_pr);
     vex::copy(x_pr, pressure);   
     prof.toc("solve press matrix");
+
+    std::cout << "iters P = " << iters << std::endl;
+    std::cout << "error P = " << error << std::endl;
 
     int n_u = 3 * n;
     col_u.reserve(5 * n_u);
     val_u.reserve(5 * n_u);
     ptr_u.reserve(n_u);
-    int    iters;
-    double error;
 
     prof.tic("build disp matrix");
     build_disp_mat(col_u, val_u, ptr_u, wells);
     fill_disp_rhs(pressure, rhs_u, wells);
-    Solver solve_disp( boost::tie(n_u, ptr_u, col_u, val_u) );
+    USolver solve_disp( amgcl::adapter::block_matrix<3, mat_type>(
+                boost::tie(n_u, ptr_u, col_u, val_u) ) );
     prof.toc("build disp matrix");
 
     prof.tic("solve disp");
-    vex::copy(rhs_u, rhs_dev_u);
+
+    vec_type const * fptr = reinterpret_cast<vec_type const *>(&rhs_u[0]);
+    vec_type       * xptr = reinterpret_cast<vec_type       *>(&disp[0]);
+
+    vex::copy(fptr, fptr + n, rhs_dev_u.begin());
     boost::tie(iters, error) = solve_disp(rhs_dev_u, x_u);
-    vex::copy(x_u, disp);
+    vex::copy(x_u.begin(), x_u.end(), xptr);
     prof.toc("solve disp");
 
-    std::cout << "iters = " << iters << std::endl;
-    std::cout << "error = " << error << std::endl;
+    std::cout << "iters U = " << iters << std::endl;
+    std::cout << "error U = " << error << std::endl;
 
     dil_calc(disp, dilatation, dil_dt, wells);
     std::fill(dil_dt.begin(), dil_dt.end(), 0.);
 
     prof.tic("time cycle");
-    for(auto t = 0; t < 100; ++t)
+    for(auto t = 0; t < 1; ++t)
     {
         //pressure
-        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr,permeability, wells);
+        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells,
+                source, dil_dt);
         vex::copy(rhs_pr, rhs_dev_pr);
-        Solver solve(boost::tie(n, ptr_pr, col_pr, val_pr));
-        solve(rhs_dev_pr, x_pr);
+        PSolver solve_press(boost::tie(n, ptr_pr, col_pr, val_pr));
+        solve_press(rhs_dev_pr, x_pr);
         vex::copy(x_pr, pressure);
 
         //displacements
         fill_disp_rhs(pressure, rhs_u, wells);
-        vex::copy(rhs_u, rhs_dev_u);
-        vex::copy(x_u, disp);
- 
+        vex::copy(fptr, fptr + n, rhs_dev_u.begin());
+        solve_disp(rhs_dev_u, x_u);
+        vex::copy(x_u.begin(), x_u.end(), xptr);
+
         //dilatation
         dil_calc(disp, dilatation, dil_dt, wells);
-       
+
         //velocity
-        vel_calc(pressure, velocity, permeability, wells);
+        flow_calc(pressure, flow, permeability, wells);
 
         //concentration
         tmp_conc = concentration;
-        conc_calc(concentration, tmp_conc, porosity, source, velocity, wells);
-        conc_calc(tmp_conc, concentration, porosity, source, velocity, wells);
+        conc_calc(concentration, tmp_conc, porosity, source, flow, wells);
+        conc_calc(tmp_conc, concentration, porosity, source, flow, wells);
 
         //porosity&source
-        por_calc(concentration, porosity, source, velocity, dil_dt, wells);
+        por_calc(concentration, porosity, source, flow, dil_dt, wells);
 
         //permeability
         per_calc(porosity, permeability, wells);
@@ -193,9 +229,13 @@ int main(int argc, char *argv[])
 
             wrt_vtk(pressure, "./data/pressure" + filename);
 
-            wrt_vtk(velocity.x, "./data/qx" + filename);
-            wrt_vtk(velocity.y, "./data/qy" + filename);
-            wrt_vtk(velocity.z, "./data/qz" + filename);
+            wrt_vtk(flow.x_left, "./data/qx_left" + filename);
+            wrt_vtk(flow.y_left, "./data/qy_left" + filename);
+            wrt_vtk(flow.z_left, "./data/qz_left" + filename);
+
+            wrt_vtk(flow.x_right, "./data/qx_right" + filename);
+            wrt_vtk(flow.y_right, "./data/qy_right" + filename);
+            wrt_vtk(flow.z_right, "./data/qz_right" + filename);
 
             wrt_vtk(dilatation, "./data/dil" + filename);
 
@@ -231,9 +271,13 @@ int main(int argc, char *argv[])
 
     wrt_vtk(pressure, "./data/pressure" + filename);
 
-    wrt_vtk(velocity.x, "./data/qx" + filename);
-    wrt_vtk(velocity.y, "./data/qy" + filename);
-    wrt_vtk(velocity.z, "./data/qz" + filename);
+    wrt_vtk(flow.x_left, "./data/qx_left" + filename);
+    wrt_vtk(flow.y_left, "./data/qy_left" + filename);
+    wrt_vtk(flow.z_left, "./data/qz_left" + filename);
+
+    wrt_vtk(flow.x_right, "./data/qx_right" + filename);
+    wrt_vtk(flow.y_right, "./data/qy_right" + filename);
+    wrt_vtk(flow.z_right, "./data/qz_right" + filename);
 
     wrt_vtk(u_x, "./data/ux" + filename);
     wrt_vtk(u_y, "./data/uy" + filename);

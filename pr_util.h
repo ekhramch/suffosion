@@ -1,17 +1,19 @@
 #ifndef PR_UTIL_H 
 #define PR_UTIL_H
 
-const auto n_x = 64; // amount of steps by x-axis
-const auto n_y = n_x; // amount of steps by x-axis
-const auto n_z = n_x; // amount of steps by x-axis
-const auto n_t = 1000; // amount of time steps
-const auto n = n_x * n_y * n_z; //size of vectors
-const auto h_i = 1; //for i+-1
-const auto h_j = n_x; //for j+-1
-const auto h_k = n_x * n_y; //for k+-1
+#include <boost/array.hpp>
 
-const double h = 1. / n_x; // spatial step
-const double h_t = 1. / n_t; // time step
+const int n_x = 64; // amount of steps by x-axis
+const int n_y = n_x; // amount of steps by x-axis
+const int n_z = n_x; // amount of steps by x-axis
+const int n_t = 1000; // amount of time steps
+const int n = n_x * n_y * n_z; //size of vectors
+const int h_i = 1; //for i+-1
+const int h_j = n_x; //for j+-1
+const int h_k = n_x * n_y; //for k+-1
+
+const double h = 1. / double(n_x); // spatial step
+const double h_t = 1. / double(n_t); // time step
 
 const double time_un = 3600.; // time for undim, 1 hour, sec
 const double length = 100.; // standart length of the layer, m
@@ -20,7 +22,7 @@ const double depth = 500.; // depth of layer, m
 const double k_0 = 1e-12; // initial permeability, m^2=1darci
 const double q_0 = 1.16*1e-5; // initial speed, 1 m per day in m/sec
 const double fi_0 = 0.55; // initial porosity
-const double c_0 = 0.; // initial concentration, kg/m^3
+const double c_0 = 0.1; // initial concentration, kg/m^3
 
 const double E = 7e6; // Young's modulus for soil, Pa
 const double nu = 0.35; // Poisson's ratio, non-dim
@@ -44,27 +46,33 @@ const double r_c = 0.1 / length; // radius of borehole, undimensioned
 
 struct vec_3d
 {
-    std::vector<double> x;
-    std::vector<double> y;
-    std::vector<double> z;
+    std::vector<double> x_left;
+    std::vector<double> y_left;
+    std::vector<double> z_left;   
+    
+    std::vector<double> x_right;
+    std::vector<double> y_right;
+    std::vector<double> z_right;
 
-    vec_3d(int n = 1) : x(n, 0.), y(n, 0.), z(n, 0.) {}
+    vec_3d(int n = 1) : x_left(n, 0.), y_left(n, 0.), z_left(n, 0.),
+                        x_right(n, 0.), y_right(n, 0.), z_right(n, 0.) {}
 };
 
 int wrt_vtk(std::vector<double> &arr, const std::string &filename);
 
 double get_nu(double i, double j, std::vector<int> wells);
 
-int vel_calc(std::vector<double> &pressure, vec_3d &velocity, 
+int flow_calc(std::vector<double> &pressure, vec_3d &flow,
         std::vector<double> &permeability, std::vector<int> wells);
 
 int conc_calc(std::vector<double> &conc_1, std::vector<double> &conc_2,
         std::vector<double> porosity, std::vector<double> source, 
-        vec_3d &velocity, std::vector<int> wells);
+        vec_3d &flow, std::vector<int> wells);
 
 int build_press_mat(std::vector<int> &col, std::vector<double> &val, 
         std::vector<int> &ptr, std::vector<double> &rhs, 
-        std::vector<double> &permeability, std::vector<int> &wells);
+        std::vector<double> &permeability, std::vector<int> &wells,
+        std::vector<double> &source, std::vector<double> &dil_dt);
 
 int drawLine(int x1, int y1, int x2, int y2, int z,std::vector<double> &matrix); 
 
@@ -73,7 +81,7 @@ double get_perm(int index_1, int index_2, std::vector<double> &permeability);
 double get_pr_coef(int index_1, int index_2, std::vector<double> &permeability,
         std::vector<int> &wells);
 
-std::array<char, 3> check_border(int index);
+boost::array<char, 3> check_border(int index);
 
 bool is_border(int index);
 
@@ -93,7 +101,7 @@ int dil_calc(std::vector<double> &disp, std::vector<double> &dilatation,
 
 int por_calc(std::vector<double> &concentration, 
         std::vector<double> &porosity, std::vector<double> &source,
-        vec_3d &velocity, std::vector<double> &dil_dt, std::vector<int> &wells);
+        vec_3d &flow, std::vector<double> &dil_dt, std::vector<int> &wells);
 
 int per_calc(std::vector<double> &porosity, std::vector<double> &permeability,
         std::vector<int> &wells);
