@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     std::string filename;
 
     //other variables
-    const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ) * n_t; 
+    const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ); 
     int writer_step = 99;
 
     add_well(n_x/2, n_y/2, wells);
@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
     std::fill(dil_dt.begin(), dil_dt.end(), 0.);
 
     prof.tic("time cycle");
-    for(auto t = 0; t < 1; ++t)
+    for(auto t = 0; t < duration; ++t)
     {
         //pressure
         build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells,
@@ -248,6 +248,8 @@ int main(int argc, char *argv[])
             wrt_vtk(permeability, "./data/permeability" + filename);
 
             wrt_vtk(concentration, "./data/concentration" + filename);
+
+            wrt_vtk(source, "./data/source" + filename);
 
             writer_step = 0;
         }
