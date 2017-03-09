@@ -128,7 +128,9 @@ int conc_calc(vector<double> &conc_1, vector<double> &conc_2,
                 ( h_t * 0.5 * time_un / porosity[index] ) * 
                 ( -source[index] - (tmp[0] + tmp[1] + tmp[2]) / (2. * length * h) );
 
-            if(conc_2[index] < 0.01)
+            //conc_2[index] -= h_t * time_un * ( (tmp[0] + tmp[1] + tmp[2]) / (2. * length * h) + source[index] );
+
+            if(conc_2[index] < 0.)
                 conc_2[index] = 0.;
         }
         else
