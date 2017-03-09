@@ -22,7 +22,7 @@ const double depth = 500.; // depth of layer, m
 const double k_0 = 1e-12; // initial permeability, m^2=1darci
 const double q_0 = 1.16*1e-5; // initial speed, 1 m per day in m/sec
 const double fi_0 = 0.55; // initial porosity
-const double c_0 = 0.1; // initial concentration, kg/m^3
+const double c_0 = 0.; // initial concentration, kg/m^3
 
 const double E = 7e6; // Young's modulus for soil, Pa
 const double nu = 0.35; // Poisson's ratio, non-dim
