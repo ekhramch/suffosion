@@ -85,50 +85,48 @@ int conc_calc(vector<double> &conc_1, vector<double> &conc_2,
         vector<int> wells)
 {   
     boost::array<char, 3> border_flag = {0, 0, 0};
-    double tmp[3] = {0., 0., 0.};
+    double tmp = 0.;
 
     for(int index = 0; index < n; ++index)
     {
+        tmp = 0.;
+
         if(!(is_well(index, wells)))
         {
-            tmp[0] = tmp[1] = tmp[2] = 0.;
-
             border_flag = check_border(index);
 
             //x-axis
             if(border_flag[0] != 'w')
-                tmp[0] = 
+                tmp += 
                     flow.x_left[index] * (conc_1[index] - conc_1[index - h_i]);
 
             if(border_flag[0] != 'e')
-                tmp[0] += 
+                tmp += 
                     flow.x_right[index] * (conc_1[index + h_i] - conc_1[index]);
 
             //y-axis
             if(border_flag[1] != 's')
-                tmp[1] = 
+                tmp += 
                     flow.y_left[index] * (conc_1[index] - conc_1[index - h_j]);
 
             if(border_flag[1] != 'n')
-                tmp[1] += 
+                tmp += 
                     flow.y_right[index] * (conc_1[index + h_j] - conc_1[index]);
 
             //z-axis
             if(border_flag[2] != 'b')
-                tmp[2] = 
+                tmp += 
                     flow.z_left[index] * (conc_1[index] - conc_1[index - h_k]);
 
             if(border_flag[2] != 0)
-                tmp[2] += 
+                tmp += 
                     flow.z_right[index] * (conc_1[index + h_k] - conc_1[index]);
 
 
             conc_2[index] = 
                 (conc_1[index] + conc_2[index]) / 2. +
                 ( h_t * 0.5 * time_un / porosity[index] ) * 
-                ( -source[index] - (tmp[0] + tmp[1] + tmp[2]) / (2. * length * h) );
-
-            //conc_2[index] -= h_t * time_un * ( (tmp[0] + tmp[1] + tmp[2]) / (2. * length * h) + source[index] );
+                ( -source[index] - tmp / (2. * length * h) );
 
             if(conc_2[index] < 0.)
                 conc_2[index] = 0.;
