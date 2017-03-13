@@ -3,15 +3,19 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <map>
 #include <algorithm>
 #include <cstdlib>
 #include "boost/multi_array.hpp"
+#include "saver.hpp"
 #include <vexcl/vexcl.hpp>
+#include "pr_util.h"
+#include "omp.h"
+#include <cassert>
 
 #ifdef nDEBUG
 #  undef nDEBUG
 #endif
-#include <cassert>
 
 /*AMGCL include section*/
 #include <amgcl/amg.hpp>
@@ -31,8 +35,6 @@
 #include <amgcl/io/mm.hpp>
 /*end of section*/
 
-#include "pr_util.h"
-#include "omp.h"
 
 namespace amgcl
 {
@@ -92,6 +94,27 @@ int main(int argc, char *argv[])
     vex::vector<vec_type> x_u(ctx.queue(), n);
     amgcl::backend::clear(x_u);
     std::string filename;
+
+    std::map<std::string, double*> save_data = 
+    {
+        {"pressure", pressure.data()},
+        {"dilatation", dilatation.data()},
+        {"porosity", porosity.data()},
+        {"permeability", permeability.data()},
+        {"dil_dt", dil_dt.data()},
+        {"concentration", concentration.data()},
+        {"source", source.data()},
+        {"flow_x_left", flow.x_left.data()},
+        {"flow_y_left", flow.y_left.data()},
+        {"flow_z_left", flow.z_left.data()},
+        {"flow_x_right", flow.x_right.data()},
+        {"flow_y_right", flow.y_right.data()},
+        {"flow_z_right", flow.z_right.data()},
+        {"u_x", u_x.data()},
+        {"u_y", u_y.data()},
+        {"u_z", u_z.data()}
+    };
+    saver data_saver("suffosion", n_x, n_y, n_z, h);
 
     //other variables
     const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ); 
@@ -204,6 +227,13 @@ int main(int argc, char *argv[])
         vex::copy(fptr, fptr + n, rhs_dev_u.begin());
         solve_disp(rhs_dev_u, x_u);
         vex::copy(x_u.begin(), x_u.end(), xptr);
+       
+        for(auto index = 0; index < n; ++index)
+        {
+            u_x[index] = disp[3*index + 0];
+            u_y[index] = disp[3*index + 1];
+            u_z[index] = disp[3*index + 2];
+        }
 
         //dilatation
         dil_calc(disp, dilatation, dil_dt, wells);
@@ -223,44 +253,14 @@ int main(int argc, char *argv[])
         per_calc(porosity, permeability, wells);
 
         //write results
-        if( (writer_step++) == 100 )
+        if( (writer_step++) == 100 || t == duration - 1 )
         {
-            filename = std::to_string(t) + ".vtk";
-
-            wrt_vtk(pressure, "./data/pressure" + filename);
-
-            wrt_vtk(flow.x_left, "./data/qx_left" + filename);
-            wrt_vtk(flow.y_left, "./data/qy_left" + filename);
-            wrt_vtk(flow.z_left, "./data/qz_left" + filename);
-
-            wrt_vtk(flow.x_right, "./data/qx_right" + filename);
-            wrt_vtk(flow.y_right, "./data/qy_right" + filename);
-            wrt_vtk(flow.z_right, "./data/qz_right" + filename);
-
-            wrt_vtk(dilatation, "./data/dil" + filename);
-
-            wrt_vtk(porosity, "./data/porosity" + filename);
-
-            wrt_vtk(por_dt, "./data/dphi_dt" + filename);
-
-            wrt_vtk(dil_dt, "./data/dil_dt" + filename);
-
-            wrt_vtk(permeability, "./data/permeability" + filename);
-
-            wrt_vtk(concentration, "./data/concentration" + filename);
-
-            wrt_vtk(source, "./data/source" + filename);
-
+            data_saver.add_step(t*h_t, save_data);
+            
             writer_step = 0;
         }
     }
 
-    for(auto index = 0; index < n; ++index)
-    {
-        u_x[index] = disp[3*index + 0];
-        u_y[index] = disp[3*index + 1];
-        u_z[index] = disp[3*index + 2];
-    }
 
     prof.toc("time cycle");
 
@@ -268,36 +268,6 @@ int main(int argc, char *argv[])
 
     for(auto q = ctx.queue().begin(); q != ctx.queue().end(); ++q)
         q->finish();
-
-    filename = "_fin.vtk";
-
-    wrt_vtk(pressure, "./data/pressure" + filename);
-
-    wrt_vtk(flow.x_left, "./data/qx_left" + filename);
-    wrt_vtk(flow.y_left, "./data/qy_left" + filename);
-    wrt_vtk(flow.z_left, "./data/qz_left" + filename);
-
-    wrt_vtk(flow.x_right, "./data/qx_right" + filename);
-    wrt_vtk(flow.y_right, "./data/qy_right" + filename);
-    wrt_vtk(flow.z_right, "./data/qz_right" + filename);
-
-    wrt_vtk(u_x, "./data/ux" + filename);
-    wrt_vtk(u_y, "./data/uy" + filename);
-    wrt_vtk(u_z, "./data/uz" + filename);
-
-    wrt_vtk(dilatation, "./data/dil" + filename);
-
-    wrt_vtk(porosity, "./data/porosity" + filename);
-
-    wrt_vtk(por_dt, "./data/dphi_dt" + filename);
-
-    wrt_vtk(dil_dt, "./data/dil_dt" + filename);
-
-    wrt_vtk(permeability, "./data/permeability" + filename);
-
-    wrt_vtk(concentration, "./data/concentration" + filename);
-
-    wrt_vtk(source, "./data/source" + filename);
 
     return 0;
 }

@@ -64,9 +64,14 @@ endif()
 add_executable(suffosion 
     suffosion.cpp
     pr_util.cpp
+    saver.cpp
     )
 
-target_link_libraries(suffosion
+target_link_libraries(
+    suffosion
     ${Boost_LIBRARIES}
+    hdf5 
+    hdf5_cpp 
+    pugixml   
     cuda
     )
