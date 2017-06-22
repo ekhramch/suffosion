@@ -1087,4 +1087,6 @@ int lax_wendroff_3d(std::vector<double> &c, std::vector<cell> &c_vol,
 
                 c[index] += h_t * tmp / h;
             }
+
+    return 0;
 }
