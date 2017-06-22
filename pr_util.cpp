@@ -806,18 +806,18 @@ inline int idx(int i, int j, int k)
     return i + j * n_x + k * n_x * n_y;
 }
 
-inline int edge_center(std::vector<double> &val, int index, int d1)
+inline double edge_center(std::vector<double> &val, int index, int d1)
 {
     return 0.5 * (val[index] + val[index + d1] );
 }
 
-inline int face_center(std::vector<double> &val, int index, int d1, int d2)
+inline double face_center(std::vector<double> &val, int index, int d1, int d2)
 {
     return 0.25 * ( val[index] + val[index + d1] 
             + val[index + d2] + val[index + d1 + d2] );
 }
 
-inline int cell_center(std::vector<double> &val, int index)
+inline double cell_center(std::vector<double> &val, int index)
 {
         return 0.125 * (  val[index] + val[index + h_i]
                         + val[index + h_j] + val[index + h_k]
@@ -829,7 +829,7 @@ inline int cell_center(std::vector<double> &val, int index)
 int get_flow_face(std::vector<double> &face, std::vector<double> &p, 
         std::vector<double> &perm, int index, int d1, int d2, int d3)
 {
-    double tmp, tmp_perm, tmp_k;
+    double tmp, tmp_perm, tmp_phi;
 
     //clockwise
     //d3 is axis orthogonal to the face
@@ -918,8 +918,11 @@ cell get_flow_cell(std::vector<double> &p, std::vector<double> &perm, int index)
     return tmp;
 }
 
-int get_flow(std::vector<cell> &q, std::vector<double> &p, 
-        std::vector<double> &perm)
+int get_flow(
+        std::vector<cell> &q, 
+        std::vector<double> &p, 
+        std::vector<double> &perm
+        )
 {
     for(auto k = 0; k < n_z - 1; ++k)
         for(auto j = 0; j < n_y - 1; ++j)
@@ -934,8 +937,15 @@ int get_flow(std::vector<cell> &q, std::vector<double> &p,
 }
 
 
-int get_conc_face(std::vector<double> &face, std::vector<double> &c, 
-        std::vector<double> &face_q, int index, int d1, int d2)
+int get_conc_face(        
+        std::vector<double> &face,         
+        std::vector<double> &c,
+        std::vector<double> &face_q,
+        int index, 
+        int d1, 
+        int d2, 
+        std::vector<double> &phi
+        )
 {
     double tmp;
     //clockwise
@@ -957,48 +967,71 @@ int get_conc_face(std::vector<double> &face, std::vector<double> &c,
     face[3] = edge_center(c, index, d2);
 
     //center
-    tmp = ( face_q[1] * face[1] - face_q[3] * face[3] )
-        + ( face_q[0] * face[0] - face_q[2] * face[2] );
+    tmp = face_q[1] * face[1] / edge_center(phi, index + d1, d2)
+        - face_q[3] * face[3] / edge_center(phi, index, d2)
+        + face_q[0] * face[0] / edge_center(phi, index + d2, d1)
+        - face_q[2] * face[2] / edge_center(phi, index, d1);
 
     face[4] = face_center(c,index, d1, d2) + h_t * tmp / (4. * h);
 
     return 0;
 }
 
-cell get_conc_cell(cell &q_cell, std::vector<double> &c, int index)
+cell get_conc_cell(
+        cell &q_cell, 
+        std::vector<double> &c, 
+        int index, 
+        std::vector<double> &phi
+        )
 {
     cell tmp;
 
     //i
-    get_conc_face(tmp.x_left, c, q_cell.x_left, index, h_j, h_k);
+    get_conc_face(tmp.x_left, c, q_cell.x_left, index, h_j, h_k, phi);
 
     //i+1
-    get_conc_face(tmp.x_right, c, q_cell.x_right, index + h_i, h_j, h_k);
+    get_conc_face(tmp.x_right, c, q_cell.x_right, index + h_i, h_j, h_k, phi);
 
     //j
-    get_conc_face(tmp.y_left, c, q_cell.y_left, index, h_i, h_k);
+    get_conc_face(tmp.y_left, c, q_cell.y_left, index, h_i, h_k, phi);
 
     //j+1
-    get_conc_face(tmp.y_right, c, q_cell.y_right, index + h_j, h_i, h_k);
+    get_conc_face(tmp.y_right, c, q_cell.y_right, index + h_j, h_i, h_k, phi);
 
     //k
-    get_conc_face(tmp.z_left, c, q_cell.z_left, index, h_i, h_j);
+    get_conc_face(tmp.z_left, c, q_cell.z_left, index, h_i, h_j, phi);
 
     //k+1
-    get_conc_face(tmp.z_right, c, q_cell.z_right, index + h_k, h_i, h_j);               
+    get_conc_face(tmp.z_right, c, q_cell.z_right, index + h_k, h_i, h_j, phi);               
 
-    double tmp_1  = 
-         + q_cell.x_right[4] * ( tmp.x_right[4] - tmp.x_left[4] )
-         + q_cell.y_right[4] * ( tmp.y_right[4] - tmp.y_left[4] )
-         + q_cell.z_right[4] * ( tmp.z_right[4] - tmp.z_left[4] );
+    double tmp_1; 
+
+    tmp_1 = q_cell.x_right[4] * tmp.x_right[4] 
+            / face_center(phi, index + h_i, h_j, h_k);
+    tmp_1 -= q_cell.x_left[4] * tmp.x_left[4]
+            / face_center(phi, index, h_j, h_k);
+
+    tmp_1 += q_cell.y_right[4] * tmp.y_right[4] 
+            / face_center(phi, index + h_j, h_i, h_k);
+    tmp_1 -= q_cell.y_left[4] * tmp.y_left[4] 
+            / face_center(phi, index, h_i, h_k);
+
+    tmp_1 += q_cell.z_right[4] * tmp.z_right[4] 
+            / face_center(phi, index + h_k, h_i, h_j);
+    tmp_1 -= q_cell.z_left[4] * tmp.z_left[4] 
+            / face_center(phi, index, h_i, h_j);
 
     tmp.center = cell_center(c, index) * h_t * tmp_1 / ( 2. * h );
 
     return tmp;
 }
 
-int get_c_vol(std::vector<cell> &c_vol,
-                std::vector<cell> &q, std::vector<double> &c)
+int get_c_vol(
+        std::vector<cell> &c_vol,
+        std::vector<cell> &q, 
+        std::vector<double> &c, 
+        std::vector<double> &phi
+        )
 {
     for(auto k = 1; k < n_z - 1; ++k)
         for(auto j = 1; j < n_y - 1; ++j)
@@ -1006,14 +1039,18 @@ int get_c_vol(std::vector<cell> &c_vol,
             {
                 auto index = idx(i, j, k);
 
-                c_vol[index] = get_conc_cell(q[index], c, index);
+                c_vol[index] = get_conc_cell(q[index], c, index, phi);
             }
 
     return 0;
 }
 
-int get_c_flux(std::vector<cell> &c_vol, std::vector<cell> &q, 
-        std::vector<double> flux, int d1, int d2)
+int get_c_flux(std::vector<cell> &c_vol, 
+        std::vector<cell> &q, 
+        std::vector<double> flux, 
+        int d1, 
+        int d2
+        )
 {
     double tmp;
 
@@ -1034,23 +1071,27 @@ int get_c_flux(std::vector<cell> &c_vol, std::vector<cell> &q,
     return 0;
 }
 
-int lax_wendroff_3d(std::vector<double> &c, std::vector<cell> &c_vol, 
-        std::vector<cell> &q)
+int lax_wendroff_3d(
+        std::vector<double> &c, 
+        std::vector<cell> &c_vol, 
+        std::vector<cell> &q, 
+        std::vector<double> &phi
+        )
 {
     double tmp;
     std::vector<double> F(n, 0.);
     std::vector<double> G(n, 0.);
     std::vector<double> V(n, 0.);
 
-    get_c_vol(c_vol, q, c);
+    get_c_vol(c_vol, q, c, phi);
 
     for(auto k = 1; k < n_z - 1; ++k)
         for(auto j = 1; j < n_y - 1; ++j)
             for(auto i = 1; i < n_x - 1; ++i)
             {
                 auto index = idx(i, j, k);
-                q[index].center = 0.5 * 
-                    (q[index].x_left[4] + q[index].x_right[4]);            
+                q[index].center = ( q[index].x_left[4] + q[index].x_right[4] ) 
+                                    / ( 2. * cell_center(phi, index) );            
             }
     get_c_flux(c_vol, q, F, h_j, h_k);
 

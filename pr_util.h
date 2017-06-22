@@ -121,6 +121,6 @@ int get_flow(std::vector<cell> &q, std::vector<double> &p,
         std::vector<double> &perm);
 
 int lax_wendroff_3d(std::vector<double> &c, std::vector<cell> &c_vol, 
-        std::vector<cell> &q);
+        std::vector<cell> &q, std::vector<double> &phi);
 
 #endif
