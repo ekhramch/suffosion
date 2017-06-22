@@ -826,8 +826,8 @@ inline int cell_center(std::vector<double> &val, int index)
                         );
 }
 
-int get_flow_face(std::vector<double> &face, std::vector<double> &pressure, 
-        std::vector<double> &permeability, int index, int d1, int d2, int d3)
+int get_flow_face(std::vector<double> &face, std::vector<double> &p, 
+        std::vector<double> &perm, int index, int d1, int d2, int d3)
 {
     double tmp, tmp_perm, tmp_k;
 
@@ -836,16 +836,15 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &pressure,
     //d2 is "senior" axis and heads upward
     //d1 is "junior" axis and heads right
     //chain of command: x-axis < y-axis < z-axis.
-    
-    tmp = face_center(pressure, index, d1, d2);
-    tmp_perm = face_center(permeability, index, d1, d2);
+
+    tmp = face_center(p, index, d1, d2);
 
     //up - 12 o'clock
     if( (index + 2 * d2) < n )
     {
-        tmp_k = tmp_perm + face_center(permeability, index + d2, d1, d2);
-        face[0] = (0.5 * tmp_k / h) *
-            ( face_center(pressure, index + d2, d1, d2) - tmp );
+        tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
+                + face_center(perm, index + d2, d1, d2) );
+        face[0] = tmp_perm * ( face_center(p, index + d2, d1, d2) - tmp ) / h;
     }
     else
         face[0] = 0.;
@@ -853,9 +852,9 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &pressure,
     //right - 3 o'clock
     if( (index + 2 * d1) < n )
     {
-    tmp_k = tmp_perm + face_center(permeability, index + d1, d1, d2);
-    face[1] = (tmp_k * 0.5 / h) *
-        ( face_center(pressure, index + d1, d1, d2) - tmp );
+        tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
+                + face_center(perm, index + d1, d1, d2) );
+        face[1] = tmp_perm * ( face_center(p, index + d1, d1, d2) - tmp ) / h;        
     }
     else
         face[1] = 0.;
@@ -863,9 +862,9 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &pressure,
     //down - 6 o'clock
     if( (index - d2) > 0 )
     {
-        tmp_k = tmp_perm + face_center(permeability, index, d1, -d2);
-        face[2] = (tmp_k * 0.5 / h) *
-            ( tmp - face_center(pressure, index, d1, -d2) );
+        tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
+                + face_center(perm, index - d2, d1, d2) );
+        face[2] = tmp_perm * ( tmp - face_center(p, index - d2, d1, d2) ) / h;  
     }
     else
         face[2] = 0.;
@@ -873,9 +872,9 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &pressure,
     //left - 9 o'clock
     if( (index - d1) > 0 )
     {
-        tmp_k = tmp_perm + face_center(permeability, index, -d1, d2);
-        face[3] = (tmp_k * 0.5 / h) *
-            ( tmp - face_center(pressure, index, -d1, d2) );
+        tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
+                + face_center(perm, index - d1, d1, d2) );
+        face[3] = tmp_perm * ( tmp - face_center(p, index - d1, d1, d2) ) / h; 
     }
     else
         face[3] = 0;
@@ -883,10 +882,10 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &pressure,
     //center
     if( (index + d3) > 0 && (index + 2 * d3) < n )
     {
-        tmp = cell_center(pressure, index);
-        tmp_perm = cell_center(permeability, index);
-        tmp_k = tmp_perm + cell_center(permeability, index + d3);
-        face[4] = (tmp_k * 0.5 / h) * (tmp - cell_center(pressure, index + d3));
+        tmp_perm = 0.5 * 
+            ( cell_center(perm, index) + cell_center(perm, index + d3) );
+        face[4] = tmp_perm * 
+            ( cell_center(p, index) - cell_center(p, index + d3) ) / h;
     }
     else
         face[4] = 0.;
@@ -894,7 +893,32 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &pressure,
     return 0;
 }
 
-int get_flow_cell(std::vector<cell> &q, std::vector<double> &p, 
+cell get_flow_cell(std::vector<double> &p, std::vector<double> &perm, int index)
+{
+    cell tmp;
+
+    //i
+    get_flow_face(tmp.x_left, p, perm, index, h_j, h_k, -h_i);
+
+    //i+1
+    get_flow_face(tmp.x_right, p, perm, index + h_i, h_j, h_k, h_i);
+
+    //j
+    get_flow_face(tmp.y_left, p, perm, index, h_i, h_k, -h_j);
+
+    //j+1
+    get_flow_face(tmp.y_right, p, perm, index + h_j, h_i, h_k, h_j);
+
+    //k
+    get_flow_face(tmp.z_left, p, perm, index, h_i, h_j, -h_k);
+
+    //k+1
+    get_flow_face(tmp.z_right, p, perm, index + h_k, h_i, h_j, h_k);
+
+    return tmp;
+}
+
+int get_flow(std::vector<cell> &q, std::vector<double> &p, 
         std::vector<double> &perm)
 {
     for(auto k = 0; k < n_z - 1; ++k)
@@ -903,26 +927,10 @@ int get_flow_cell(std::vector<cell> &q, std::vector<double> &p,
             {
                 auto index = idx(i, j, k);
 
-                //i
-                get_flow_face(q[index].x_left, p, perm, index, h_j, h_k, -h_i);
+                q[index] = get_flow_cell(p, perm, index);
+            }
 
-                //i+1
-                get_flow_face(q[index].x_right, p, perm, index + h_i, h_j, h_k, h_i);
-
-                //j
-                get_flow_face(q[index].y_left, p, perm, index, h_i, h_k, -h_j);
-
-                //j+1
-                get_flow_face(q[index].y_right, p, perm, index + h_j, h_i, h_k, h_j);
-
-                //k
-                get_flow_face(q[index].z_left, p, perm, index, h_i, h_j, -h_k);
-
-                //k+1
-                get_flow_face(q[index].z_right, p, perm, index + h_k, h_i, h_j, h_k);
-            }    
-
-    return 0;
+    return 0;    
 }
 
 

@@ -117,7 +117,7 @@ int per_calc(std::vector<double> &porosity, std::vector<double> &permeability,
 
 int add_well(int x, int y, std::vector<int> &wells);
 
-int get_flow_cell(std::vector<cell> &q, std::vector<double> &p, 
+int get_flow(std::vector<cell> &q, std::vector<double> &p, 
         std::vector<double> &perm);
 
 int lax_wendroff_3d(std::vector<double> &c, std::vector<cell> &c_vol, 
