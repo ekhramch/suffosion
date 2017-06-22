@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
     //Vectors of variables
     std::vector<double> pressure(n, p_top);
-    vec_3d flow(n); //velocities, x,y,z components
+    cell flow(n); //velocities, x,y,z components
     std::vector<double> source(n, 0.);//source of solid phase
     std::vector<double> concentration(n, c_0); 
     std::vector<double> tmp_conc(n, c_0); 
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
     std::fill(dil_dt.begin(), dil_dt.end(), 0.);
 
     prof.tic("time cycle");
-    for(auto t = 0; t < duration; ++t)
+    for(auto t = 0; t < 0; ++t)
     {
         //pressure
         build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells,
@@ -261,6 +261,25 @@ int main(int argc, char *argv[])
         }
     }
 
+    for(auto index = 0; index < n; ++index)
+    {
+        porosity[index] = pressure[index] / p_bh;
+
+        if( !(is_well(index, wells)) )
+        {
+            if(porosity[index] >= 0.7)
+                porosity[index] *= 0.8;
+            else 
+                if(porosity[index] < 0.7 && porosity[index] > 0.67)
+                    porosity[index] *= 0.45;
+                else
+                    porosity[index] = 0.5;
+        }
+    }
+
+    //fake_plot(porosity, fi_0, 0.3);
+            
+    data_saver.add_step(0, save_data);
 
     prof.toc("time cycle");
 

@@ -3,7 +3,7 @@
 
 #include <boost/array.hpp>
 
-const int n_x = 64; // amount of steps by x-axis
+const int n_x = 100; // amount of steps by x-axis
 const int n_y = n_x; // amount of steps by x-axis
 const int n_z = n_x; // amount of steps by x-axis
 const int n_t = 1000; // amount of time steps
@@ -44,30 +44,39 @@ const double p_bot = p_top; //minus hydrostatic
 const double p_bh = 2. * p_top; // pressure on the borehole
 const double r_c = 0.1 / length; // radius of borehole, undimensioned
 
-struct vec_3d
+struct cell
 {
     std::vector<double> x_left;
-    std::vector<double> y_left;
-    std::vector<double> z_left;   
-    
     std::vector<double> x_right;
+    
+    std::vector<double> y_left;
     std::vector<double> y_right;
+    
+    std::vector<double> z_left;   
     std::vector<double> z_right;
 
-    vec_3d(int n = 1) : x_left(n, 0.), y_left(n, 0.), z_left(n, 0.),
-                        x_right(n, 0.), y_right(n, 0.), z_right(n, 0.) {}
+    double center;
+
+    cell(int n = 5) : x_left(n, 0.), 
+                      x_right(n, 0.),
+                      y_left(n, 0.), 
+                      y_right(n, 0.),
+                      z_left(n, 0.), 
+                      z_right(n, 0.),
+                      center{0.}
+    {}
 };
 
 int wrt_vtk(std::vector<double> &arr, const std::string &filename);
 
 double get_nu(double i, double j, std::vector<int> wells);
 
-int flow_calc(std::vector<double> &pressure, vec_3d &flow,
+int flow_calc(std::vector<double> &pressure, cell &flow,
         std::vector<double> &permeability, std::vector<int> wells);
 
 int conc_calc(std::vector<double> &conc_1, std::vector<double> &conc_2,
         std::vector<double> porosity, std::vector<double> source, 
-        vec_3d &flow, std::vector<int> wells);
+        cell &flow, std::vector<int> wells);
 
 int build_press_mat(std::vector<int> &col, std::vector<double> &val, 
         std::vector<int> &ptr, std::vector<double> &rhs, 
@@ -101,11 +110,17 @@ int dil_calc(std::vector<double> &disp, std::vector<double> &dilatation,
 
 int por_calc(std::vector<double> &concentration, 
         std::vector<double> &porosity, std::vector<double> &source,
-        vec_3d &flow, std::vector<double> &dil_dt, std::vector<int> &wells);
+        cell &flow, std::vector<double> &dil_dt, std::vector<int> &wells);
 
 int per_calc(std::vector<double> &porosity, std::vector<double> &permeability,
         std::vector<int> &wells);
 
 int add_well(int x, int y, std::vector<int> &wells);
+
+int get_flow_cell(std::vector<cell> &q, std::vector<double> &p, 
+        std::vector<double> &perm);
+
+int lax_wendroff_3d(std::vector<double> &c, std::vector<cell> &c_vol, 
+        std::vector<cell> &q);
 
 #endif
