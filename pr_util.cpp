@@ -745,16 +745,11 @@ int per_calc(vector<double> &porosity, vector<double> &permeability,
         vector<int> &wells)
 {
     for(int index = 0; index < n; ++index)
-    {        
         if( !(is_well(index, wells)) )
         {
-            double s = 6 * ( 1 - porosity[index] ) / d;
-
-            permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
+            permeability[index] *= pow(porosity[index], 3) 
+                / pow(1. - porosity[index], 2);
         }
-        else
-            permeability[index] = 0.;
-    }
 
     return 0;
 }
@@ -826,10 +821,28 @@ inline double cell_center(std::vector<double> &val, int index)
                         );
 }
 
+std::vector<int> get_index(
+        int i_start, 
+        int i_end, 
+        int j_start, 
+        int j_end, 
+        int k_start, 
+        int k_end)
+{
+    std::vector<int> tmp;
+
+    for(auto k = k_start; k < k_end; ++k)
+        for(auto j = j_start; j < j_end; ++j)
+            for(auto i = i_start; i < i_end; ++i)
+                tmp.push_back(i + j * n_x + k * n_x * n_y);
+
+    return tmp;
+}
+
 int get_flow_face(std::vector<double> &face, std::vector<double> &p, 
         std::vector<double> &perm, int index, int d1, int d2, int d3)
 {
-    double tmp, tmp_perm, tmp_phi;
+    double tmp, tmp_perm;
 
     //clockwise
     //d3 is axis orthogonal to the face
@@ -843,7 +856,7 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     if( (index + 2 * d2) < n )
     {
         tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
-                + face_center(perm, index + d2, d1, d2) );
+                          + face_center(perm, index + d2, d1, d2) );
         face[0] = tmp_perm * ( face_center(p, index + d2, d1, d2) - tmp ) / h;
     }
     else
@@ -852,8 +865,8 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     //right - 3 o'clock
     if( (index + 2 * d1) < n )
     {
-        tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
-                + face_center(perm, index + d1, d1, d2) );
+        tmp_perm = 0.5 * ( face_center(perm, index, d1, d2) 
+                          + face_center(perm, index + d1, d1, d2) );
         face[1] = tmp_perm * ( face_center(p, index + d1, d1, d2) - tmp ) / h;        
     }
     else
@@ -862,8 +875,8 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     //down - 6 o'clock
     if( (index - d2) > 0 )
     {
-        tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
-                + face_center(perm, index - d2, d1, d2) );
+        tmp_perm = 0.5 * ( face_center(perm, index, d1, d2)
+                          + face_center(perm, index - d2, d1, d2) );
         face[2] = tmp_perm * ( tmp - face_center(p, index - d2, d1, d2) ) / h;  
     }
     else
@@ -873,18 +886,20 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     if( (index - d1) > 0 )
     {
         tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
-                + face_center(perm, index - d1, d1, d2) );
+                          + face_center(perm, index - d1, d1, d2) );
         face[3] = tmp_perm * ( tmp - face_center(p, index - d1, d1, d2) ) / h; 
     }
     else
         face[3] = 0;
 
     //center
+    int sign = ( d3 < 0 ? -1 : 1);
+
     if( (index + d3) > 0 && (index + 2 * d3) < n )
     {
         tmp_perm = 0.5 * 
             ( cell_center(perm, index) + cell_center(perm, index + d3) );
-        face[4] = tmp_perm * 
+        face[4] = tmp_perm * sign *  
             ( cell_center(p, index) - cell_center(p, index + d3) ) / h;
     }
     else
@@ -924,14 +939,10 @@ int get_flow(
         std::vector<double> &perm
         )
 {
-    for(auto k = 0; k < n_z - 1; ++k)
-        for(auto j = 0; j < n_y - 1; ++j)
-            for(auto i = 0; i < n_x - 1; ++i)
-            {
-                auto index = idx(i, j, k);
+    auto index = get_index(0, n_x - 1, 0,  n_y - 1, 0, n_z - 1);
 
-                q[index] = get_flow_cell(p, perm, index);
-            }
+    for(auto idx = index.begin(); idx < index.end(); ++idx)
+        q[*idx] = get_flow_cell(p, perm, *idx);
 
     return 0;    
 }
@@ -1075,7 +1086,8 @@ int lax_wendroff_3d(
         std::vector<double> &c, 
         std::vector<cell> &c_vol, 
         std::vector<cell> &q, 
-        std::vector<double> &phi
+        std::vector<double> &phi,
+        std::vector<int> &wells
         )
 {
     double tmp;
@@ -1122,11 +1134,16 @@ int lax_wendroff_3d(
             {
                 auto index = idx(i, j, k);
 
-                tmp = ( F[index + h_i] - F[index - h_i] ) 
-                    + ( G[index + h_j] - G[index - h_j] )
-                    + ( V[index + h_k] - V[index - h_k] );
+                if(!is_well(index, wells))
+                {
+                    tmp = ( F[index + h_i] - F[index - h_i] ) 
+                        + ( G[index + h_j] - G[index - h_j] )
+                        + ( V[index + h_k] - V[index - h_k] );
 
-                c[index] += h_t * tmp / h;
+                    c[index] += h_t * tmp / h;
+                }
+                else
+                    c[index] = 0.1;
             }
 
     return 0;

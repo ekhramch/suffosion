@@ -63,11 +63,11 @@ int main(int argc, char *argv[])
 
     //Vectors of variables
     std::vector<double> pressure(n, p_top);
-    cell flow(n); //velocities, x,y,z components
+    std::vector<cell> flow(n); //velocities, x,y,z components
     std::vector<double> source(n, 0.);//source of solid phase
     std::vector<double> concentration(n, c_0); 
     std::vector<double> tmp_conc(n, c_0); 
-    std::vector<double> permeability(n, 0.);
+    std::vector<double> permeability(n, k_0);
     std::vector<double> matrix(n, 0.); //matrix of permeability
     std::vector<double> u_x(n, 0.), u_y(n, 0.), u_z(n, 0.); //displacements
     std::vector<double> dilatation(n, 0.); 
@@ -94,22 +94,19 @@ int main(int argc, char *argv[])
     vex::vector<vec_type> x_u(ctx.queue(), n);
     amgcl::backend::clear(x_u);
     std::string filename;
+    
+    std::vector<double> temp_val(n, 0.); 
 
     std::map<std::string, double*> save_data = 
     {
         {"pressure", pressure.data()},
         {"dilatation", dilatation.data()},
         {"porosity", porosity.data()},
+        {"flow", temp_val.data()},
         {"permeability", permeability.data()},
         {"dil_dt", dil_dt.data()},
         {"concentration", concentration.data()},
         {"source", source.data()},
-        {"flow_x_left", flow.x_left.data()},
-        {"flow_y_left", flow.y_left.data()},
-        {"flow_z_left", flow.z_left.data()},
-        {"flow_x_right", flow.x_right.data()},
-        {"flow_y_right", flow.y_right.data()},
-        {"flow_z_right", flow.z_right.data()},
         {"u_x", u_x.data()},
         {"u_y", u_y.data()},
         {"u_z", u_z.data()}
@@ -123,19 +120,6 @@ int main(int argc, char *argv[])
     add_well(n_x/2, n_y/2, wells);
 
     std::sort(wells.begin(), wells.end());
-
-    for(int index = 0; index < n; ++index)
-    {        
-        if( !(is_well(index, wells)) )
-        {
-            double s = 6 * ( 1 - porosity[index] ) / d;
-
-            permeability[index] = pow(porosity[index], 3)/(T * T * s * s * eta);
-        }
-        else
-            permeability[index] = 0.;
-    }
-
 
     // Define the AMG type:
     typedef amgcl::backend::vexcl<double>   SBackend;
@@ -239,18 +223,12 @@ int main(int argc, char *argv[])
         dil_calc(disp, dilatation, dil_dt, wells);
 
         //velocity
-        flow_calc(pressure, flow, permeability, wells);
 
         //concentration
-        tmp_conc = concentration;
-        conc_calc(concentration, tmp_conc, porosity, source, flow, wells);
-        conc_calc(tmp_conc, concentration, porosity, source, flow, wells);
 
         //porosity&source
-        por_calc(concentration, porosity, source, flow, dil_dt, wells);
 
         //permeability
-        per_calc(porosity, permeability, wells);
 
         //write results
         if( (writer_step++) == 100 || t == duration - 1 )
@@ -261,7 +239,19 @@ int main(int argc, char *argv[])
         }
     }
 
-    for(auto index = 0; index < n; ++index)
+    get_flow(flow, pressure, permeability);
+    lax_wendroff_3d(tmp_val, c_vol, flow, porosity, wells);
+
+    /*for(auto k = 0; k < n_z - 1; ++k)
+        for(auto j = 0; j < n_y - 1; ++j)
+            for(auto i = 0; i < n_x - 1; ++i)
+            {
+                auto index = i + j * n_x + k * n_x * n_y;
+                temp_val[index] = flow[index].z_left[4];
+                temp_val[index + h_k] =flow[index].z_right[4];
+            }*/
+
+    /*for(auto index = 0; index < n; ++index)
     {
         porosity[index] = pressure[index] / p_bh;
 
@@ -275,10 +265,8 @@ int main(int argc, char *argv[])
                 else
                     porosity[index] = 0.5;
         }
-    }
+    }*/
 
-    //fake_plot(porosity, fi_0, 0.3);
-            
     data_saver.add_step(0, save_data);
 
     prof.toc("time cycle");
