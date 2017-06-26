@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
     //Vectors of variables
     std::vector<double> pressure(n, p_top);
     std::vector<cell> flow(n); //velocities, x,y,z components
+    std::vector<cell> c_vol(n); //volume concentration
     std::vector<double> source(n, 0.);//source of solid phase
     std::vector<double> concentration(n, c_0); 
     std::vector<double> tmp_conc(n, c_0); 
@@ -102,7 +103,7 @@ int main(int argc, char *argv[])
         {"pressure", pressure.data()},
         {"dilatation", dilatation.data()},
         {"porosity", porosity.data()},
-        {"flow", temp_val.data()},
+        {"temp", temp_val.data()},
         {"permeability", permeability.data()},
         {"dil_dt", dil_dt.data()},
         {"concentration", concentration.data()},
@@ -239,33 +240,22 @@ int main(int argc, char *argv[])
         }
     }
 
-    get_flow(flow, pressure, permeability);
-    lax_wendroff_3d(tmp_val, c_vol, flow, porosity, wells);
+    for(auto index = 0; index < n; ++index)
+        if(is_well(index, wells))
+            concentration[index] = 0.1;
 
-    /*for(auto k = 0; k < n_z - 1; ++k)
+    get_flow(flow, pressure, permeability);
+
+    for(auto t = 0; t < 100; ++t)
+        lax_wendroff_3d(concentration, c_vol, flow, porosity, wells);
+
+    for(auto k = 0; k < n_z - 1; ++k)
         for(auto j = 0; j < n_y - 1; ++j)
             for(auto i = 0; i < n_x - 1; ++i)
             {
                 auto index = i + j * n_x + k * n_x * n_y;
-                temp_val[index] = flow[index].z_left[4];
-                temp_val[index + h_k] =flow[index].z_right[4];
-            }*/
-
-    /*for(auto index = 0; index < n; ++index)
-    {
-        porosity[index] = pressure[index] / p_bh;
-
-        if( !(is_well(index, wells)) )
-        {
-            if(porosity[index] >= 0.7)
-                porosity[index] *= 0.8;
-            else 
-                if(porosity[index] < 0.7 && porosity[index] > 0.67)
-                    porosity[index] *= 0.45;
-                else
-                    porosity[index] = 0.5;
-        }
-    }*/
+                temp_val[index] = c_vol[index].center;
+            }
 
     data_saver.add_step(0, save_data);
 

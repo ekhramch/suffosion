@@ -842,7 +842,7 @@ std::vector<int> get_index(
 int get_flow_face(std::vector<double> &face, std::vector<double> &p, 
         std::vector<double> &perm, int index, int d1, int d2, int d3)
 {
-    double tmp, tmp_perm;
+    double tmp, tmp_perm, un = time_un/length;
 
     //clockwise
     //d3 is axis orthogonal to the face
@@ -857,7 +857,7 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     {
         tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
                           + face_center(perm, index + d2, d1, d2) );
-        face[0] = tmp_perm * ( face_center(p, index + d2, d1, d2) - tmp ) / h;
+        face[0] = un * tmp_perm * ( face_center(p, index + d2, d1, d2) - tmp ) / h;
     }
     else
         face[0] = 0.;
@@ -867,7 +867,7 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     {
         tmp_perm = 0.5 * ( face_center(perm, index, d1, d2) 
                           + face_center(perm, index + d1, d1, d2) );
-        face[1] = tmp_perm * ( face_center(p, index + d1, d1, d2) - tmp ) / h;        
+        face[1] = un * tmp_perm * ( face_center(p, index + d1, d1, d2) - tmp ) / h;        
     }
     else
         face[1] = 0.;
@@ -877,7 +877,7 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     {
         tmp_perm = 0.5 * ( face_center(perm, index, d1, d2)
                           + face_center(perm, index - d2, d1, d2) );
-        face[2] = tmp_perm * ( tmp - face_center(p, index - d2, d1, d2) ) / h;  
+        face[2] = un * tmp_perm * ( tmp - face_center(p, index - d2, d1, d2) ) / h;  
     }
     else
         face[2] = 0.;
@@ -887,19 +887,19 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     {
         tmp_perm = 0.5 * (  face_center(perm, index, d1, d2) 
                           + face_center(perm, index - d1, d1, d2) );
-        face[3] = tmp_perm * ( tmp - face_center(p, index - d1, d1, d2) ) / h; 
+        face[3] = un * tmp_perm * ( tmp - face_center(p, index - d1, d1, d2) ) / h; 
     }
     else
         face[3] = 0;
 
     //center
-    int sign = ( d3 < 0 ? -1 : 1);
+    int sign = ( d3 < 0 ? 1 : -1);
 
     if( (index + d3) > 0 && (index + 2 * d3) < n )
     {
         tmp_perm = 0.5 * 
             ( cell_center(perm, index) + cell_center(perm, index + d3) );
-        face[4] = tmp_perm * sign *  
+        face[4] = un * tmp_perm * sign *  
             ( cell_center(p, index) - cell_center(p, index + d3) ) / h;
     }
     else
@@ -1032,7 +1032,7 @@ cell get_conc_cell(
     tmp_1 -= q_cell.z_left[4] * tmp.z_left[4] 
             / face_center(phi, index, h_i, h_j);
 
-    tmp.center = cell_center(c, index) * h_t * tmp_1 / ( 2. * h );
+    tmp.center = cell_center(c, index) + h_t * tmp_1 / ( 2. * h );
 
     return tmp;
 }
@@ -1058,7 +1058,7 @@ int get_c_vol(
 
 int get_c_flux(std::vector<cell> &c_vol, 
         std::vector<cell> &q, 
-        std::vector<double> flux, 
+        std::vector<double> &flux, 
         int d1, 
         int d2
         )
@@ -1071,12 +1071,12 @@ int get_c_flux(std::vector<cell> &c_vol,
             {
                 auto index = idx(i, j, k);
 
-                tmp = q[index].center           * c_vol[index].center 
-                    + q[index - d1].center      * c_vol[index - d1].center
-                    + q[index - d2].center      * c_vol[index - d2].center
-                    + q[index - d1 - d2].center * c_vol[index - d1 - d2].center;
+                tmp = q[index].center * c_vol[index].center;
+                tmp += q[index - d1].center * c_vol[index - d1].center;
+                tmp += q[index - d2].center * c_vol[index - d2].center; 
+                tmp += q[index - d1 - d2].center * c_vol[index - d1 - d2].center;
 
-                flux[index] = 0.25 * tmp;
+                flux[index] = 0.25 * tmp / 0.5;
             }
 
     return 0;
@@ -1103,7 +1103,7 @@ int lax_wendroff_3d(
             {
                 auto index = idx(i, j, k);
                 q[index].center = ( q[index].x_left[4] + q[index].x_right[4] ) 
-                                    / ( 2. * cell_center(phi, index) );            
+                    / ( 2. * cell_center(phi, index) );            
             }
     get_c_flux(c_vol, q, F, h_j, h_k);
 
@@ -1112,8 +1112,8 @@ int lax_wendroff_3d(
             for(auto i = 1; i < n_x - 1; ++i)
             {
                 auto index = idx(i, j, k);
-                q[index].center = 0.5 * 
-                    (q[index].y_left[4] + q[index].y_right[4]);            
+                q[index].center = ( q[index].y_left[4] + q[index].y_right[4] )
+                    / ( 2. * cell_center(phi, index) );            
             }
     get_c_flux(c_vol, q, G, h_i, h_k);
 
@@ -1122,11 +1122,10 @@ int lax_wendroff_3d(
             for(auto i = 1; i < n_x - 1; ++i)
             {
                 auto index = idx(i, j, k);
-                q[index].center = 0.5 * 
-                    (q[index].z_left[4] + q[index].z_right[4]);            
+                q[index].center = ( q[index].z_left[4] + q[index].z_right[4])
+                    / ( 2. * cell_center(phi, index) );            
             }
     get_c_flux(c_vol, q, V, h_i, h_j);
-
 
     for(auto k = 1; k < n_z - 1; ++k)
         for(auto j = 1; j < n_y - 1; ++j)
@@ -1134,17 +1133,58 @@ int lax_wendroff_3d(
             {
                 auto index = idx(i, j, k);
 
-                if(!is_well(index, wells))
-                {
-                    tmp = ( F[index + h_i] - F[index - h_i] ) 
-                        + ( G[index + h_j] - G[index - h_j] )
-                        + ( V[index + h_k] - V[index - h_k] );
+                tmp = ( F[index + h_i] - F[index - h_i] ) 
+                    + ( G[index + h_j] - G[index - h_j] )
+                    + ( V[index + h_k] - V[index - h_k] );
 
+                if(!is_well(index, wells))
                     c[index] += h_t * tmp / h;
-                }
                 else
                     c[index] = 0.1;
             }
 
+    int index1 = (n_x/2+1) + n_x * (n_y/2+1) + n_x * n_y * (n_z/2);
+    std::cout << "c = " << c[index1] << std::endl;
+
     return 0;
+}
+
+int print_face(std::vector<double> face)
+{
+    std::cout << "Up: " << face[0] << std::endl;
+    std::cout << "Right: " << face[1] << std::endl;
+    std::cout << "Down: " << face[2] << std::endl;
+    std::cout << "Left: " << face[3] << std::endl;
+    std::cout << "Center: " << face[4] << std::endl;
+
+    return 0;
+}
+
+int print_cell(cell &elem)
+{
+    std::cout << "x-left(i): "; 
+    print_face(elem.x_left);
+    std::cout<< std::endl; 
+
+    std::cout << "x-right(i+1): ";
+    print_face(elem.x_right);
+    std::cout << std::endl; 
+
+    std::cout << "y-left(j): ";
+    print_face(elem.y_left);
+    std::cout << std::endl;    
+
+    std::cout << "y-right(j+1): ";
+    print_face(elem.y_right);
+    std::cout << std::endl;  
+
+    std::cout << "z-left(k): ";
+    print_face(elem.z_left);
+    std::cout << std::endl;    
+
+    std::cout << "z-right(k+1): ";
+    print_face(elem.z_right);
+    std::cout << std::endl;
+
+    std::cout << "Middle of the cell: " << elem.center << std::endl;
 }
