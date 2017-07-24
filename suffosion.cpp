@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
         {"u_z", u_z.data()}
     };
     saver data_saver("suffosion", n_x, n_y, n_z, h);
-
+    
     //other variables
     const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ); 
     int writer_step = 99;
@@ -244,10 +244,86 @@ int main(int argc, char *argv[])
         if(is_well(index, wells))
             concentration[index] = 0.1;
 
-    get_flow(flow, pressure, permeability);
+    std::vector<double> x_flow_left(n, 0.);
+    std::vector<double> x_flow_right(n, 0.);
+    std::vector<double> y_flow_left(n, 0.);
+    std::vector<double> y_flow_right(n, 0.);
+    std::vector<double> z_flow_left(n, 0.);
+    std::vector<double> z_flow_right(n, 0.);
+    std::vector<double> errors(n, 0.);
 
-    for(auto t = 0; t < 100; ++t)
+    get_flow(flow, pressure, permeability, errors);
+
+    for(auto i = 0; i < n; ++i)
+    {
+        x_flow_left[i]  = flow[i].x_left[4] 
+                        + flow[i].y_right[3]
+                        + flow[i].y_left[3]
+                        + flow[i].z_right[2]
+                        + flow[i].z_left[2];
+
+        x_flow_right[i] = flow[i].x_right[4] 
+                        + flow[i].y_right[1]
+                        + flow[i].y_left[1]
+                        + flow[i].z_right[0]
+                        + flow[i].z_left[0];
+        
+        y_flow_left[i]  = flow[i].y_left[4] 
+                        + flow[i].x_right[3]
+                        + flow[i].x_left[3]
+                        + flow[i].z_right[3]
+                        + flow[i].z_left[3];
+
+        y_flow_right[i] = flow[i].x_right[4] 
+                        + flow[i].y_right[1]
+                        + flow[i].y_left[1]
+                        + flow[i].z_right[1]
+                        + flow[i].z_left[1];
+        
+        z_flow_left[i]  = flow[i].x_left[2];
+            /*flow[i].z_left[4] 
+                        + flow[i].x_right[2]
+                        + flow[i].x_left[2]
+                        + flow[i].y_right[2]
+                        + flow[i].y_left[2];*/
+
+        z_flow_right[i] = flow[i].x_left[0];
+            /*flow[i].z_right[4] 
+                        + flow[i].x_right[0]
+                        + flow[i].x_left[0]
+                        + flow[i].y_right[0]
+                        + flow[i].y_left[0];*/
+    }
+
+    std::map<std::string, double*> save_flows = 
+    {
+        {"x_left", x_flow_left.data()},
+        {"x_right", x_flow_right.data()},
+        {"y_left", y_flow_left.data()},
+        {"y_right",y_flow_right.data()},
+        {"z_left", z_flow_left.data()},
+        {"z_right", z_flow_right.data()},
+        {"errors", errors.data()},
+    };
+    saver flow_saver("flows", n_x, n_y, n_z, h);
+    flow_saver.add_step(0, save_flows);
+
+    for(auto t = 0; t < 0; ++t)
+    {
+        int counter = 10;
+    
         lax_wendroff_3d(concentration, c_vol, flow, porosity, wells);
+        
+        if(counter == 10)
+        {
+            data_saver.add_step(t*h_t, save_data);
+            counter = 0;
+        }
+
+        ++counter;
+    }
+           
+    data_saver.add_step(0, save_data);
 
     for(auto k = 0; k < n_z - 1; ++k)
         for(auto j = 0; j < n_y - 1; ++j)
@@ -256,8 +332,6 @@ int main(int argc, char *argv[])
                 auto index = i + j * n_x + k * n_x * n_y;
                 temp_val[index] = c_vol[index].center;
             }
-
-    data_saver.add_step(0, save_data);
 
     prof.toc("time cycle");
 

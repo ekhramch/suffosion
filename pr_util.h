@@ -19,7 +19,7 @@ const double time_un = 3600.; // time for undim, 1 hour, sec
 const double length = 100.; // standart length of the layer, m
 const double depth = 500.; // depth of layer, m
 
-const double k_0 = 1e-12; // initial permeability, m^2=1darci
+const double k_0 = 1e-11; // initial permeability, m^2=1darci
 const double q_0 = 1.16*1e-5; // initial speed, 1 m per day in m/sec
 const double fi_0 = 0.55; // initial porosity
 const double c_0 = 0.; // initial concentration, kg/m^3
@@ -117,8 +117,8 @@ int per_calc(std::vector<double> &porosity, std::vector<double> &permeability,
 
 int add_well(int x, int y, std::vector<int> &wells);
 
-int get_flow(std::vector<cell> &q, std::vector<double> &p, 
-        std::vector<double> &perm);
+int get_flow(std::vector<cell> &q, std::vector<double> &p,
+        std::vector<double> &K, std::vector<double> &err);
 
 int lax_wendroff_3d(std::vector<double> &c, std::vector<cell> &c_vol, 
        std::vector<cell> &q, std::vector<double> &phi, std::vector<int> &wells);
