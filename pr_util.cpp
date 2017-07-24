@@ -1036,9 +1036,9 @@ int get_flow(std::vector<cell> &q, std::vector<double> &p,
       for(auto idx = index.begin(); idx < index.end(); ++idx)
       q[*idx] = get_flow_cell(p, perm, *idx);*/
 
-    for(auto k = 0; k < n_z - 1; ++k)
-        for(auto j = 0; j < n_y - 1; ++j)
-            for(auto i = 0; i < n_x - 1; ++i)
+    for(auto k = 0; k < n_z; ++k)
+        for(auto j = 0; j < n_y; ++j)
+            for(auto i = 0; i < n_x; ++i)
             {
                 idx = get_idx(i, j, k);
                 get_flow_cell(p, K, q[idx], idx);
