@@ -902,11 +902,14 @@ int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, in
         elem.x_left[3] = 0.;
 
     //center
-    /*idx_1 = get_idx(i, j, k);
-    idx_2 = get_idx(i - 1, j , k);
-    grad_p = ( cell_center(p, idx_1) - cell_center(p, idx_2) ) / h;
-    avg_K = 0.5 * ( cell_center(K, idx_1) + cell_center(K, idx_2) );
-    tmp.x_left[4] = -undim * avg_K * grad_p;*/
+    if(i > 0)
+    {
+        p_2 = face_center(p, idx, h_j, h_k);
+        p_1 = face_center(p, idx - h_i, h_j, h_k);
+        elem.x_left[4] = -undim * k_0 * (p_2 - p_1) / h;
+    }
+    else
+        elem.x_left[4] = 0.;
 
     return 0;
 }

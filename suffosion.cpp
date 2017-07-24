@@ -274,11 +274,11 @@ int main(int argc, char *argv[])
                         + flow[i].z_right[3]
                         + flow[i].z_left[3];
 
-        y_flow_right[i] = flow[i].x_left[1]; /*flow[i].y_right[4] 
+        y_flow_right[i] = flow[i].y_right[4] 
                         + flow[i].x_right[1]
                         + flow[i].x_left[1]
                         + flow[i].z_right[1]
-                        + flow[i].z_left[1];*/
+                        + flow[i].z_left[1];
         
         z_flow_left[i]  = flow[i].z_left[4] 
                         + flow[i].x_right[2]
