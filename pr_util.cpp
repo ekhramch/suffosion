@@ -866,7 +866,9 @@ int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, in
     {
         p_1 = face_center(p, idx, h_j, h_k);
         p_2 = face_center(p, idx + h_k, h_j, h_k);
-        elem.x_left[0] = -undim * k_0 * (p_2 - p_1) / h;
+        K_1 = face_center(K, idx, h_j, h_k);
+        K_2 = face_center(K, idx + h_k, h_j, h_k);
+        elem.x_left[0] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         elem.x_left[0] = 0.;
@@ -876,7 +878,9 @@ int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, in
     {
         p_1 = face_center(p, idx, h_j, h_k);
         p_2 = face_center(p, idx + h_j, h_j, h_k);
-        elem.x_left[1] = -undim * k_0 * (p_2 - p_1) / h;
+        K_1 = face_center(K, idx, h_j, h_k);
+        K_2 = face_center(K, idx + h_j, h_j, h_k);        
+        elem.x_left[1] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         elem.x_left[1] = 0.;
@@ -886,7 +890,9 @@ int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, in
     {
         p_2 = face_center(p, idx, h_j, h_k);
         p_1 = face_center(p, idx - h_k, h_j, h_k);
-        elem.x_left[2] = -undim * k_0 * (p_2 - p_1) / h;
+        K_1 = face_center(K, idx, h_j, h_k);
+        K_2 = face_center(K, idx - h_k, h_j, h_k);             
+        elem.x_left[2] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         elem.x_left[2] = 0.;
@@ -896,7 +902,9 @@ int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, in
     {
         p_2 = face_center(p, idx, h_j, h_k);
         p_1 = face_center(p, idx - h_j, h_j, h_k);
-        elem.x_left[3] = -undim * k_0 * (p_2 - p_1) / h;
+        K_1 = face_center(K, idx, h_j, h_k);
+        K_2 = face_center(K, idx - h_j, h_j, h_k);  
+        elem.x_left[3] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         elem.x_left[3] = 0.;
@@ -906,7 +914,9 @@ int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, in
     {
         p_2 = face_center(p, idx, h_j, h_k);
         p_1 = face_center(p, idx - h_i, h_j, h_k);
-        elem.x_left[4] = -undim * k_0 * (p_2 - p_1) / h;
+        K_1 = face_center(K, idx, h_j, h_k);
+        K_2 = face_center(K, idx - h_i, h_j, h_k);  
+        elem.x_left[4] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         elem.x_left[4] = 0.;
