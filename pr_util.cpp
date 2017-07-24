@@ -1033,8 +1033,8 @@ int get_flow(std::vector<cell> &q, std::vector<double> &p,
     int idx;
     auto index = get_index(0, n_x - 1, 0,  n_y - 1, 0, n_z - 1);
 
-      for(auto idx = index.begin(); idx < index.end(); ++idx)
-          get_flow_cell(p, K, q[*idx], idx);
+    for(auto idx = index.begin(); idx < index.end(); ++idx)
+        get_flow_cell(p, K, q[*idx], *idx);
 
     check_flows(q, err);
 
