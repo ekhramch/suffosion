@@ -853,49 +853,56 @@ int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, in
 {
     double p_1, p_2, K_1, K_2;
     double undim = time_un/length;
+    
+    int k = idx / (n_x*n_y);
+    int tmp_loc = idx - k*n_x*n_y;
+    int j = tmp_loc/n_x;
+    int i = tmp_loc - j*n_x;
+
 
     //x_left
     //up
-    if( (idx +  2 * h_k) < n )
+    if( k < n_z - 2 )
     {
         p_1 = face_center(p, idx, h_j, h_k);
         p_2 = face_center(p, idx + h_k, h_j, h_k);
-        elem.x_left[0] = -undim * k_0 * (p_2 - p_1) / ( h);
+        elem.x_left[0] = -undim * k_0 * (p_2 - p_1) / h;
     }
     else
         elem.x_left[0] = 0.;
-
+   
     //right
-    /*idx_1 = get_idx(i, j, k);
-      idx_2 = get_idx(i, j + 2, k);
-      grad_p = (p[idx_2] + p[idx_2 + h_k] - p[idx_1] - p[idx_1 + h_k]) / (4. * h);
-      idx_2 = get_idx(i, j + 1, k);    
-      avg_K = 0.5 * 
-      face_center(K, idx_1, h_j, h_k) + face_center(K, idx_2, h_j, h_k);
-      tmp.x_left[1] = -undim * avg_K * grad_p;*/
+    if( j < n_y - 2 )
+    {
+        p_1 = face_center(p, idx, h_j, h_k);
+        p_2 = face_center(p, idx + h_j, h_j, h_k);
+        elem.x_left[1] = -undim * k_0 * (p_2 - p_1) / h;
+    }
+    else
+        elem.x_left[1] = 0.;
 
     //down
-    if(idx - h_k > 0)
+    if(k > 0)
     {
         p_2 = face_center(p, idx, h_j, h_k);
         p_1 = face_center(p, idx - h_k, h_j, h_k);
-        elem.x_left[2] = -undim * k_0 * (p_2 - p_1) / ( h);
+        elem.x_left[2] = -undim * k_0 * (p_2 - p_1) / h;
     }
     else
         elem.x_left[2] = 0.;
-
-
-    /*//left
-      idx_1 = get_idx(i, j - 1, k);    
-      idx_2 = get_idx(i, j + 1, k);
-      grad_p = (p[idx_2] + p[idx_2 + h_k] - p[idx_1] - p[idx_1 + h_k]) / (4. * h);
-      idx_2 = get_idx(i, j, k);    
-      avg_K = 0.5 * 
-      face_center(K, idx_1, h_j, h_k) + face_center(K, idx_2, h_j, h_k);
-      tmp.x_left[3] = -undim * avg_K * grad_p;
+    
+    //left
+    if(j > 0)
+    {
+        p_2 = face_center(p, idx, h_j, h_k);
+        p_1 = face_center(p, idx - h_j, h_j, h_k);
+        elem.x_left[3] = -undim * k_0 * (p_2 - p_1) / h;
+    }
+    else
+        elem.x_left[3] = 0.;
 
     //center
-    idx_1 = get_idx(i, j, k);
+    /*idx_1 = get_idx(i, j, k);
     idx_2 = get_idx(i - 1, j , k);
     grad_p = ( cell_center(p, idx_1) - cell_center(p, idx_2) ) / h;
     avg_K = 0.5 * ( cell_center(K, idx_1) + cell_center(K, idx_2) );
@@ -1023,6 +1030,7 @@ int check_flows(std::vector<cell> &q, std::vector<double> &err)
             {
                 auto index = get_idx(i, j , k);
                 err[index] = fabs(q[index].x_left[0]) - fabs(q[index + h_k].x_left[2]);
+                err[index] += fabs(q[index].x_left[1]) - fabs(q[index + h_j].x_left[3]);
             }
     return 0;
 }
@@ -1030,11 +1038,16 @@ int check_flows(std::vector<cell> &q, std::vector<double> &err)
 int get_flow(std::vector<cell> &q, std::vector<double> &p,
         std::vector<double> &K, std::vector<double> &err)
 {
-    int idx;
-    auto index = get_index(0, n_x - 1, 0,  n_y - 1, 0, n_z - 1);
+    /*auto index = get_index(0, n_x - 1, 0,  n_y - 1, 0, n_z - 1);
 
-    for(auto idx = index.begin(); idx < index.end(); ++idx)
-        get_flow_cell(p, K, q[*idx], *idx);
+    for(auto idx = index.begin(); idx < index.end(); ++idx)*/
+    for(auto k = 0; k < n_z - 1; ++k)
+        for(auto j = 0; j < n_y - 1; ++j)
+            for(auto i = 0; i < n_x - 1; ++i)
+            {
+                auto idx = get_idx(i, j , k);                  
+                get_flow_cell(p, K, q[idx], idx);
+            }
 
     check_flows(q, err);
 
