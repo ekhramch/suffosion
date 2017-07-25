@@ -984,14 +984,14 @@ int get_flow_face(std::vector<double> &p, std::vector<double> &K,
 
 cell get_flow_cell(std::vector<double> &p, std::vector<double> &K, int idx)
 {
-    cell tmp;
+    cell elem;
     //i
-    get_flow_face(p, K, tmp.x_left, idx, 'x', -1);
-/*
-    //i+1
-    get_flow_face(elem.x_right, p, perm, idx + h_i, 'x', 1);
+    get_flow_face(p, K, elem.x_left, idx, 'x', -1);
 
-    //j
+    //i+1
+    get_flow_face(p, K, elem.x_right, idx + h_i, 'x', 1);
+
+/*    //j
     get_flow_face(elem.y_left, p, perm, idx, 'y', -1);
 
     //j+1
@@ -1003,7 +1003,7 @@ cell get_flow_cell(std::vector<double> &p, std::vector<double> &K, int idx)
     //k+1
     get_flow_face(elem.z_right, p, perm, idx + h_k, 'z', 1);*/
 
-    return tmp;
+    return elem;
 }
 
 int check_flows(std::vector<cell> &q, std::vector<double> &err)
