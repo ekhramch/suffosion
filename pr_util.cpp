@@ -849,160 +849,132 @@ std::vector<int> get_index(
     return tmp;
 }
 
-int get_flow_cell(std::vector<double> &p, std::vector<double> &K, cell &elem, int idx)
+int get_flow_face(std::vector<double> &p, std::vector<double> &K, 
+        std::vector<double> &face, int idx, char dir, int sgn)
 {
     double p_1, p_2, K_1, K_2;
     double undim = time_un/length;
-    
+
     int k = idx / (n_x*n_y);
     int tmp_loc = idx - k*n_x*n_y;
     int j = tmp_loc/n_x;
     int i = tmp_loc - j*n_x;
 
+    int axis_1, axis_2, axis_3;
+    int lim_1, lim_2, lim_3;
+    int step_1, step_2, step_3;
 
-    //x_left
+    switch (dir)
+    {
+        case 'x':
+            axis_1 = k;
+            lim_1 = n_z;
+            step_1 = h_k;
+
+            axis_2 = j;
+            lim_2 = n_y;
+            step_2 = h_j;
+
+            axis_3 = i;
+            lim_3 = n_x;
+            step_3 = h_i;
+
+            break;
+
+
+        case 'y':
+            axis_1 = k;
+            lim_1 = n_z;
+            step_1 = h_k;
+
+            axis_2 = i;
+            lim_2 = n_x;
+            step_2 = h_i;
+
+            axis_3 = j;
+            lim_3 = n_y;
+            step_3 = h_j;
+
+            break;
+
+
+        case 'z':
+            axis_1 = j;
+            lim_1 = n_y;
+            step_1 = h_j;
+
+            axis_2 = i;
+            lim_2 = n_x;
+            step_2 = h_i;
+
+            axis_3 = k;
+            lim_3 = n_z;
+            step_3 = h_k;
+
+            break;
+
+        default:
+            std::cout << "oops" << std::endl;
+            return 1;   
+    }
+
     //up
-    if( k < n_z - 2 )
+    if( axis_1 < lim_1 - 2 )
     {
-        p_1 = face_center(p, idx, h_j, h_k);
-        p_2 = face_center(p, idx + h_k, h_j, h_k);
-        K_1 = face_center(K, idx, h_j, h_k);
-        K_2 = face_center(K, idx + h_k, h_j, h_k);
-        elem.x_left[0] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        elem.x_left[0] = 0.;
-   
-    //right
-    if( j < n_y - 2 )
-    {
-        p_1 = face_center(p, idx, h_j, h_k);
-        p_2 = face_center(p, idx + h_j, h_j, h_k);
-        K_1 = face_center(K, idx, h_j, h_k);
-        K_2 = face_center(K, idx + h_j, h_j, h_k);        
-        elem.x_left[1] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        elem.x_left[1] = 0.;
-
-    //down
-    if(k > 0)
-    {
-        p_2 = face_center(p, idx, h_j, h_k);
-        p_1 = face_center(p, idx - h_k, h_j, h_k);
-        K_1 = face_center(K, idx, h_j, h_k);
-        K_2 = face_center(K, idx - h_k, h_j, h_k);             
-        elem.x_left[2] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        elem.x_left[2] = 0.;
-    
-    //left
-    if(j > 0)
-    {
-        p_2 = face_center(p, idx, h_j, h_k);
-        p_1 = face_center(p, idx - h_j, h_j, h_k);
-        K_1 = face_center(K, idx, h_j, h_k);
-        K_2 = face_center(K, idx - h_j, h_j, h_k);  
-        elem.x_left[3] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        elem.x_left[3] = 0.;
-
-    //center
-    if(i > 0)
-    {
-        p_2 = face_center(p, idx, h_j, h_k);
-        p_1 = face_center(p, idx - h_i, h_j, h_k);
-        K_1 = face_center(K, idx, h_j, h_k);
-        K_2 = face_center(K, idx - h_i, h_j, h_k);  
-        elem.x_left[4] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        elem.x_left[4] = 0.;
-
-    return 0;
-}
-
-int get_flow_face(std::vector<double> &face, std::vector<double> &p, 
-        std::vector<double> &perm, int index, int d1, int d2, int d3)
-{
-    double tmp, tmp_perm;
-    double undim = time_un/length;
-
-    //clockwise
-    //d3 is axis orthogonal to the face
-    //d2 is "senior" axis and heads upward
-    //d1 is "junior" axis and heads right
-    //chain of command: x-axis < y-axis < z-axis.
-
-    tmp = face_center(p, index, d1, d2);
-
-    //up - 12 o'clock
-    if( (index + 2 * d2) < n )
-    {
-        tmp_perm = 0.5 * undim * 
-            ( 
-             face_center(perm, index, d1, d2) 
-             + 
-             face_center(perm, index + d2, d1, d2) 
-            );
-        face[0] = -tmp_perm * ( face_center(p, index + d2, d1, d2) - tmp ) / h;
+        p_1 = face_center(p, idx, step_2, step_1);
+        p_2 = face_center(p, idx + step_1, step_2, step_1);
+        K_1 = face_center(K, idx, step_2, step_1);
+        K_2 = face_center(K, idx + step_1, step_2, step_1);
+        face[0] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         face[0] = 0.;
 
-    //right - 3 o'clock
-    if( (index + 2 * d1) < n )
+
+    //right
+    if( axis_2 < lim_2 - 2 )
     {
-        tmp_perm = 0.5 * undim * 
-            ( 
-             face_center(perm, index, d1, d2) 
-             + 
-             face_center(perm, index + d1, d1, d2) 
-            );
-        face[1] = -tmp_perm * ( face_center(p, index + d1, d1, d2) - tmp ) / h;        
+        p_1 = face_center(p, idx, step_2, step_1);
+        p_2 = face_center(p, idx + step_2, step_2, step_1);
+        K_1 = face_center(K, idx, step_2, step_1);
+        K_2 = face_center(K, idx + step_2, step_2, step_1);
+        face[1] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         face[1] = 0.;
 
-    //down - 6 o'clock
-    if( (index - d2) > 0 )
+    //down
+    if(axis_1 > 0)
     {
-        tmp_perm = 0.5 * undim * 
-            ( 
-             face_center(perm, index, d1, d2)
-             + 
-             face_center(perm, index - d2, d1, d2) 
-            );
-        face[2] = -tmp_perm * ( tmp - face_center(p, index - d2, d1, d2) ) / h;  
+        p_2 = face_center(p, idx, step_2, step_1);
+        p_1 = face_center(p, idx - step_1, step_2, step_1);
+        K_1 = face_center(K, idx, step_2, step_1);
+        K_2 = face_center(K, idx - step_1, step_2, step_1);
+        face[2] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         face[2] = 0.;
 
-    //left - 9 o'clock
-    if( (index - d1) > 0 )
+    //left
+    if(axis_2 > 0)
     {
-        tmp_perm = 0.5 * undim * 
-            (  
-             face_center(perm, index, d1, d2) 
-             + 
-             face_center(perm, index - d1, d1, d2) 
-            );
-        face[3] = -tmp_perm * ( tmp - face_center(p, index - d1, d1, d2) ) / h; 
+        p_2 = face_center(p, idx, step_2, step_1);
+        p_1 = face_center(p, idx - step_2, step_2, step_1);
+        K_1 = face_center(K, idx, step_2, step_1);
+        K_2 = face_center(K, idx - step_2, step_2, step_1);
+        face[3] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
-        face[3] = 0;
+        face[3] = 0.;
 
     //center
-    int sign = ( d3 < 0 ? 1 : -1);
-
-    if( (index + d3) > 0 && (index + 2 * d3) < n )
+    if(axis_3 > 0)
     {
-        tmp_perm = 0.5 * undim * 
-            ( cell_center(perm, index) + cell_center(perm, index + d3) );
-        face[4] = -tmp_perm * sign *  
-            ( cell_center(p, index) - cell_center(p, index + d3) ) / h;
+        p_1 = face_center(p, idx, step_2, step_1);
+        p_2 = face_center(p, idx + sgn * step_3, step_2, step_1);
+        K_1 = face_center(K, idx, step_2, step_1);
+        K_2 = face_center(K, idx + sgn * step_3, step_2, step_1);
+        face[4] = -undim * sgn * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         face[4] = 0.;
@@ -1010,27 +982,26 @@ int get_flow_face(std::vector<double> &face, std::vector<double> &p,
     return 0;
 }
 
-cell get_flow_cell(std::vector<double> &p, std::vector<double> &perm, int index)
+cell get_flow_cell(std::vector<double> &p, std::vector<double> &K, int idx)
 {
     cell tmp;
-
     //i
-    get_flow_face(tmp.x_left, p, perm, index, h_j, h_k, -h_i);
-
+    get_flow_face(p, K, tmp.x_left, idx, 'x', -1);
+/*
     //i+1
-    get_flow_face(tmp.x_right, p, perm, index + h_i, h_j, h_k, h_i);
+    get_flow_face(elem.x_right, p, perm, idx + h_i, 'x', 1);
 
     //j
-    get_flow_face(tmp.y_left, p, perm, index, h_i, h_k, -h_j);
+    get_flow_face(elem.y_left, p, perm, idx, 'y', -1);
 
     //j+1
-    get_flow_face(tmp.y_right, p, perm, index + h_j, h_i, h_k, h_j);
+    get_flow_face(elem.y_right, p, perm, idx + h_j, 'y', 1);
 
     //k
-    get_flow_face(tmp.z_left, p, perm, index, h_i, h_j, -h_k);
+    get_flow_face(elem.z_left, p, perm, idx, 'z', -1);
 
     //k+1
-    get_flow_face(tmp.z_right, p, perm, index + h_k, h_i, h_j, h_k);
+    get_flow_face(elem.z_right, p, perm, idx + h_k, 'z', 1);*/
 
     return tmp;
 }
@@ -1059,7 +1030,7 @@ int get_flow(std::vector<cell> &q, std::vector<double> &p,
             for(auto i = 0; i < n_x - 1; ++i)
             {
                 auto idx = get_idx(i, j , k);                  
-                get_flow_cell(p, K, q[idx], idx);
+                q[idx] = get_flow_cell(p, K, idx);
             }
 
     check_flows(q, err);
