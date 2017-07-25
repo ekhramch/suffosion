@@ -986,16 +986,16 @@ cell get_flow_cell(std::vector<double> &p, std::vector<double> &K, int idx)
 {
     cell elem;
     //i
-    /*get_flow_face(p, K, elem.x_left, idx, 'x', -1);
+    get_flow_face(p, K, elem.x_left, idx, 'x', -1);
 
     //i+1
-    get_flow_face(p, K, elem.x_right, idx + h_i, 'x', 1);*/
+    get_flow_face(p, K, elem.x_right, idx + h_i, 'x', 1);
 
-    /*//j
+    //j
     get_flow_face(p, K, elem.y_left, idx, 'y', -1);
 
     //j+1
-    get_flow_face(p, K, elem.y_right, idx + h_j, 'y', 1);*/
+    get_flow_face(p, K, elem.y_right, idx + h_j, 'y', 1);
 
     //k
     get_flow_face(p, K, elem.z_left, idx, 'z', -1);
@@ -1014,15 +1014,15 @@ int check_flows(std::vector<cell> &q, std::vector<double> &err)
             {
                 auto index = get_idx(i, j , k);
 
-                /*err[index] = fabs(q[index].x_left[0]) - fabs(q[index + h_k].x_left[2]);
+                err[index] = fabs(q[index].x_left[0]) - fabs(q[index + h_k].x_left[2]);
                 err[index] += fabs(q[index].x_left[1]) - fabs(q[index + h_j].x_left[3]);
-                err[index] += fabs(q[index].x_right[4]) - fabs(q[index + h_i].x_left[4]);*/
+                err[index] += fabs(q[index].x_right[4]) - fabs(q[index + h_i].x_left[4]);
 
-                /*err[index] = fabs(q[index].y_left[0]) - fabs(q[index + h_k].y_left[2]);
+                err[index] += fabs(q[index].y_left[0]) - fabs(q[index + h_k].y_left[2]);
                 err[index] += fabs(q[index].y_left[1]) - fabs(q[index + h_i].y_left[3]);
-                err[index] += fabs(q[index].y_right[4]) - fabs(q[index + h_j].y_left[4]);*/
+                err[index] += fabs(q[index].y_right[4]) - fabs(q[index + h_j].y_left[4]);
 
-                err[index] = fabs(q[index].z_left[0]) - fabs(q[index + h_j].z_left[2]);
+                err[index] += fabs(q[index].z_left[0]) - fabs(q[index + h_j].z_left[2]);
                 err[index] += fabs(q[index].z_left[1]) - fabs(q[index + h_i].z_left[3]);
                 err[index] += fabs(q[index].z_right[4]) - fabs(q[index + h_k].z_left[4]);
             }
