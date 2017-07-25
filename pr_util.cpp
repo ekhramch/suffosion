@@ -968,13 +968,13 @@ int get_flow_face(std::vector<double> &p, std::vector<double> &K,
         face[3] = 0.;
 
     //center
-    if(axis_3 > 0)
+    if ((axis_3 < lim_3 - 2) && (axis_3 > 0) )
     {
-        p_1 = face_center(p, idx, step_2, step_1);
-        p_2 = face_center(p, idx + sgn * step_3, step_2, step_1);
-        K_1 = face_center(K, idx, step_2, step_1);
-        K_2 = face_center(K, idx + sgn * step_3, step_2, step_1);
-        face[4] = -undim * sgn * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
+        p_2 = cell_center(p, idx);
+        p_1 = cell_center(p, idx - step_3);
+        K_1 = cell_center(K, idx);
+        K_2 = cell_center(K, idx - step_3);
+        face[4] = -undim * k_0 * (p_2 - p_1) / (2. * h);
     }
     else
         face[4] = 0.;
@@ -986,22 +986,22 @@ cell get_flow_cell(std::vector<double> &p, std::vector<double> &K, int idx)
 {
     cell elem;
     //i
-    get_flow_face(p, K, elem.x_left, idx, 'x', -1);
+    /*get_flow_face(p, K, elem.x_left, idx, 'x', -1);
 
     //i+1
-    get_flow_face(p, K, elem.x_right, idx + h_i, 'x', 1);
+    get_flow_face(p, K, elem.x_right, idx + h_i, 'x', 1);*/
 
-/*    //j
-    get_flow_face(elem.y_left, p, perm, idx, 'y', -1);
+    /*//j
+    get_flow_face(p, K, elem.y_left, idx, 'y', -1);
 
     //j+1
-    get_flow_face(elem.y_right, p, perm, idx + h_j, 'y', 1);
+    get_flow_face(p, K, elem.y_right, idx + h_j, 'y', 1);*/
 
     //k
-    get_flow_face(elem.z_left, p, perm, idx, 'z', -1);
+    get_flow_face(p, K, elem.z_left, idx, 'z', -1);
 
-    //k+1
-    get_flow_face(elem.z_right, p, perm, idx + h_k, 'z', 1);*/
+   //k+1
+    get_flow_face(p, K, elem.z_right, idx + h_k, 'z', 1);
 
     return elem;
 }
@@ -1013,8 +1013,18 @@ int check_flows(std::vector<cell> &q, std::vector<double> &err)
             for(auto i = 1; i < n_x - 1; ++i)
             {
                 auto index = get_idx(i, j , k);
-                err[index] = fabs(q[index].x_left[0]) - fabs(q[index + h_k].x_left[2]);
+
+                /*err[index] = fabs(q[index].x_left[0]) - fabs(q[index + h_k].x_left[2]);
                 err[index] += fabs(q[index].x_left[1]) - fabs(q[index + h_j].x_left[3]);
+                err[index] += fabs(q[index].x_right[4]) - fabs(q[index + h_i].x_left[4]);*/
+
+                /*err[index] = fabs(q[index].y_left[0]) - fabs(q[index + h_k].y_left[2]);
+                err[index] += fabs(q[index].y_left[1]) - fabs(q[index + h_i].y_left[3]);
+                err[index] += fabs(q[index].y_right[4]) - fabs(q[index + h_j].y_left[4]);*/
+
+                err[index] = fabs(q[index].z_left[0]) - fabs(q[index + h_j].z_left[2]);
+                err[index] += fabs(q[index].z_left[1]) - fabs(q[index + h_i].z_left[3]);
+                err[index] += fabs(q[index].z_right[4]) - fabs(q[index + h_k].z_left[4]);
             }
     return 0;
 }
