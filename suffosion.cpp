@@ -259,26 +259,26 @@ int main(int argc, char *argv[])
         x_flow_left[i]  = flow[i].x_left[4] 
                         + flow[i].y_right[3]
                         + flow[i].y_left[3]
-                        + flow[i].z_right[2]
-                        + flow[i].z_left[2];
+                        + flow[i].z_right[3]
+                        + flow[i].z_left[3];
 
         x_flow_right[i] = flow[i].x_right[4] 
                         + flow[i].y_right[1]
                         + flow[i].y_left[1]
-                        + flow[i].z_right[0]
-                        + flow[i].z_left[0];
+                        + flow[i].z_right[1]
+                        + flow[i].z_left[1];
         
         y_flow_left[i]  = flow[i].y_left[4] 
                         + flow[i].x_right[3]
                         + flow[i].x_left[3]
-                        + flow[i].z_right[3]
-                        + flow[i].z_left[3];
+                        + flow[i].z_right[2]
+                        + flow[i].z_left[2];
 
         y_flow_right[i] = flow[i].y_right[4] 
                         + flow[i].x_right[1]
                         + flow[i].x_left[1]
-                        + flow[i].z_right[1]
-                        + flow[i].z_left[1];
+                        + flow[i].z_right[0]
+                        + flow[i].z_left[0];
         
         z_flow_left[i]  = flow[i].z_left[4] 
                         + flow[i].x_right[2]
