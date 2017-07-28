@@ -642,19 +642,19 @@ int fill_disp_rhs(vector<double> &pressure,
                 tmp = (pressure[index] - pressure[index - h_i]);
             else
                 tmp = (pressure[index + h_i] - pressure[index]);
-            rhs[3*index + 0] = -h * tmp * length / lame_2;
+            rhs[3*index + 0] = -h * tmp * length;
 
             if(pressure[index] < pressure[index - h_j])
                 tmp = (pressure[index] - pressure[index - h_j]);
             else
                 tmp = (pressure[index + h_j] - pressure[index]);
-            rhs[3*index + 1] = -h * tmp * length / lame_2;
+            rhs[3*index + 1] = -h * tmp * length;
 
             if(pressure[index] < pressure[index - h_k])
                 tmp = (pressure[index] - pressure[index - h_k]);
             else
                 tmp = (pressure[index + h_k] - pressure[index]);               
-            rhs[3*index + 2] = -h * tmp * length / lame_2;
+            rhs[3*index + 2] = -h * tmp * length;
 
         }
         else
@@ -850,10 +850,10 @@ std::vector<int> get_index(
 }
 
 int get_flow_face(std::vector<double> &p, std::vector<double> &K, 
-        std::vector<double> &face, int idx, char dir, int sgn)
+        std::vector<double> &face, int idx, char dir)
 {
     double p_1, p_2, K_1, K_2;
-    double undim = time_un/length;
+    double undim = lame_2 * time_un/length;
 
     int k = idx / (n_x*n_y);
     int tmp_loc = idx - k*n_x*n_y;
@@ -968,13 +968,13 @@ int get_flow_face(std::vector<double> &p, std::vector<double> &K,
         face[3] = 0.;
 
     //center
-    if ((axis_3 < lim_3 - 2) && (axis_3 > 0) )
+    if ((axis_3 < lim_3 - 1) && (axis_3 > 0) )
     {
         p_2 = cell_center(p, idx);
         p_1 = cell_center(p, idx - step_3);
         K_1 = cell_center(K, idx);
         K_2 = cell_center(K, idx - step_3);
-        face[4] = -undim * k_0 * (p_2 - p_1) / (2. * h);
+        face[4] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
     }
     else
         face[4] = 0.;
@@ -986,22 +986,22 @@ cell get_flow_cell(std::vector<double> &p, std::vector<double> &K, int idx)
 {
     cell elem;
     //i
-    get_flow_face(p, K, elem.x_left, idx, 'x', -1);
+    get_flow_face(p, K, elem.x_left, idx, 'x');
 
     //i+1
-    get_flow_face(p, K, elem.x_right, idx + h_i, 'x', 1);
+    get_flow_face(p, K, elem.x_right, idx + h_i, 'x');
 
     //j
-    get_flow_face(p, K, elem.y_left, idx, 'y', -1);
+    get_flow_face(p, K, elem.y_left, idx, 'y');
 
     //j+1
-    get_flow_face(p, K, elem.y_right, idx + h_j, 'y', 1);
+    get_flow_face(p, K, elem.y_right, idx + h_j, 'y');
 
     //k
-    get_flow_face(p, K, elem.z_left, idx, 'z', -1);
+    get_flow_face(p, K, elem.z_left, idx, 'z');
 
    //k+1
-    get_flow_face(p, K, elem.z_right, idx + h_k, 'z', 1);
+    get_flow_face(p, K, elem.z_right, idx + h_k, 'z');
 
     return elem;
 }
@@ -1029,9 +1029,24 @@ int check_flows(std::vector<cell> &q, std::vector<double> &err)
     return 0;
 }
 
+int pressure_normalize(std::vector<double> &p)
+{
+    for(int shift = 0; shift < n_z / 2; ++shift)
+        for(int j = 0; j < n_y; ++j)
+            for(int i = 0; i < n_x; ++i)
+            {
+                auto idx_1 = get_idx(i, j, shift);
+                auto idx_2 = get_idx(i, j, n_z - 1 - shift);
+                if(fabs(p[idx_1] - p[idx_2]) < 1e-8)
+                    p[idx_2] = p[idx_1];
+            }
+    return 0;
+}
+
 int get_flow(std::vector<cell> &q, std::vector<double> &p,
         std::vector<double> &K, std::vector<double> &err)
 {
+    pressure_normalize(p);
     /*auto index = get_index(0, n_x - 1, 0,  n_y - 1, 0, n_z - 1);
 
     for(auto idx = index.begin(); idx < index.end(); ++idx)*/
@@ -1286,3 +1301,4 @@ int print_cell(cell &elem)
 
     std::cout << "Middle of the cell: " << elem.center << std::endl;
 }
+
