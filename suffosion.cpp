@@ -254,15 +254,6 @@ int main(int argc, char *argv[])
 
     get_flow(flow, pressure, permeability, errors);
 
-    for(int k=1;k<n_z-1;++k)
-    for(int j=0;j<n_y;++j)
-    for(int i=0;i<n_x;++i)
-    {
-        int idx=i+n_x*j+(k-1)*n_x*n_y;
-        int idx1=i+n_x*j+(k+1)*n_x*n_y;
-        errors[idx]=pressure[idx1]-pressure[idx];
-    }
-
     for(auto i = 0; i < n; ++i)
     {
         x_flow_left[i]  = flow[i].x_left[4] 
