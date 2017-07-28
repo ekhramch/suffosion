@@ -1046,7 +1046,6 @@ int pressure_normalize(std::vector<double> &p)
 int get_flow(std::vector<cell> &q, std::vector<double> &p,
         std::vector<double> &K, std::vector<double> &err)
 {
-    //pressure_normalize(p);
     /*auto index = get_index(0, n_x - 1, 0,  n_y - 1, 0, n_z - 1);
 
     for(auto idx = index.begin(); idx < index.end(); ++idx)*/
