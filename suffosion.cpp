@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     vex::vector<vec_type> x_u(ctx.queue(), n);
     amgcl::backend::clear(x_u);
     std::string filename;
-    
+
     std::vector<double> temp_val(n, 0.); 
 
     std::map<std::string, double*> save_data = 
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
         {"u_z", u_z.data()}
     };
     saver data_saver("suffosion", n_x, n_y, n_z, h);
-    
+
     //other variables
     const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ); 
     int writer_step = 99;
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
         vex::copy(fptr, fptr + n, rhs_dev_u.begin());
         solve_disp(rhs_dev_u, x_u);
         vex::copy(x_u.begin(), x_u.end(), xptr);
-       
+
         for(auto index = 0; index < n; ++index)
         {
             u_x[index] = disp[3*index + 0];
@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
         if( (writer_step++) == 100 || t == duration - 1 )
         {
             data_saver.add_step(t*h_t, save_data);
-            
+
             writer_step = 0;
         }
     }
@@ -257,40 +257,40 @@ int main(int argc, char *argv[])
     for(auto i = 0; i < n; ++i)
     {
         x_flow_left[i]  = flow[i].x_left[4] 
-                        + flow[i].y_right[3]
-                        + flow[i].y_left[3]
-                        + flow[i].z_right[3]
-                        + flow[i].z_left[3];
+            + flow[i].y_right[3]
+            + flow[i].y_left[3]
+            + flow[i].z_right[3]
+            + flow[i].z_left[3];
 
         x_flow_right[i] = flow[i].x_right[4] 
-                        + flow[i].y_right[1]
-                        + flow[i].y_left[1]
-                        + flow[i].z_right[1]
-                        + flow[i].z_left[1];
-        
+            + flow[i].y_right[1]
+            + flow[i].y_left[1]
+            + flow[i].z_right[1]
+            + flow[i].z_left[1];
+
         y_flow_left[i]  = flow[i].y_left[4] 
-                        + flow[i].x_right[3]
-                        + flow[i].x_left[3]
-                        + flow[i].z_right[2]
-                        + flow[i].z_left[2];
+            + flow[i].x_right[3]
+            + flow[i].x_left[3]
+            + flow[i].z_right[2]
+            + flow[i].z_left[2];
 
         y_flow_right[i] = flow[i].y_right[4] 
-                        + flow[i].x_right[1]
-                        + flow[i].x_left[1]
-                        + flow[i].z_right[0]
-                        + flow[i].z_left[0];
-        
+            + flow[i].x_right[1]
+            + flow[i].x_left[1]
+            + flow[i].z_right[0]
+            + flow[i].z_left[0];
+
         z_flow_left[i]  = flow[i].z_left[4] 
-                        + flow[i].x_right[2]
-                        + flow[i].x_left[2]
-                        + flow[i].y_right[2]
-                        + flow[i].y_left[2];
+            + flow[i].x_right[2]
+            + flow[i].x_left[2]
+            + flow[i].y_right[2]
+            + flow[i].y_left[2];
 
         z_flow_right[i] = flow[i].z_right[4]
-                        + flow[i].x_right[0]
-                        + flow[i].x_left[0]
-                        + flow[i].y_right[0]
-                        + flow[i].y_left[0];
+            + flow[i].x_right[0]
+            + flow[i].x_left[0]
+            + flow[i].y_right[0]
+            + flow[i].y_left[0];
     }
 
     std::map<std::string, double*> save_flows = 
@@ -307,30 +307,11 @@ int main(int argc, char *argv[])
     flow_saver.add_step(0, save_flows);
 
 
-    for(auto t = 0; t < 0; ++t)
-    {
-        int counter = 10;
-    
-        lax_wendroff_3d(concentration, c_vol, flow, porosity, wells);
-        
-        if(counter == 10)
-        {
-            data_saver.add_step(t*h_t, save_data);
-            counter = 0;
-        }
+    for(auto t = 0; t < duration; ++t)
+        lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells);
 
-        ++counter;
-    }
-           
+
     data_saver.add_step(0, save_data);
-
-    for(auto k = 0; k < n_z - 1; ++k)
-        for(auto j = 0; j < n_y - 1; ++j)
-            for(auto i = 0; i < n_x - 1; ++i)
-            {
-                auto index = i + j * n_x + k * n_x * n_y;
-                temp_val[index] = c_vol[index].center;
-            }
 
     prof.toc("time cycle");
 

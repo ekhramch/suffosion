@@ -19,24 +19,25 @@ const double time_un = 3600.; // time for undim, 1 hour, sec
 const double length = 100.; // standart length of the layer, m
 const double depth = 500.; // depth of layer, m
 
-const double k_0 = 1e-11; // initial permeability, m^2=1darci
-const double q_0 = 1.16*1e-5; // initial speed, 1 m per day in m/sec
-const double fi_0 = 0.55; // initial porosity
-const double c_0 = 0.; // initial concentration, kg/m^3
-
 const double E = 7e6; // Young's modulus for soil, Pa
 const double nu = 0.35; // Poisson's ratio, non-dim
 const double lame_1 = E * nu / ( (1. - 2.*nu) * (1. + nu) ); // Lame first parameter(lambda), Pa
 const double lame_2 = E / ( 2.*(1. + nu) ); // Lame second parameter(G), Pa
 
+const double undim = lame_2 * time_un / length;
 const double eta = 1e-3; // dynamic viscosity, Pa*s
-const double ro_g = 1e3*9.81*length/lame_2; // density of water * grav acceleration(Earth), undimensioned
+const double ro_g = 1e3*9.81*length; // density of water * grav acceleration(Earth), undimensioned
 const double ro_s = 1.; // density of the solid phase, kg/m^3
 const double alfa = 1.; // parameter of the process, kg/m^4
 const double beta = 0.1; // parameter of the process, 1/sec
 const double gamma_1 = 0.1; // parameter, m^2/s
 const double d = 1e-4; // diameter of the particles, m
 const double T = 10.; //tortuosity
+
+const double k_0 = 1e-12 / eta; // initial permeability, m^2=1darci
+const double q_0 = 1.16*1e-5; // initial speed, 1 m per day in m/sec
+const double fi_0 = 0.55; // initial porosity
+const double c_0 = 0.; // initial concentration, kg/m^3
 
 const double p_top = (0.1*1e6 + 0.1*1e6*depth/10.) / lame_2; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 
 const double p_bot = p_top; //minus hydrostatic
@@ -120,8 +121,14 @@ int add_well(int x, int y, std::vector<int> &wells);
 int get_flow(std::vector<cell> &q, std::vector<double> &p,
         std::vector<double> &K, std::vector<double> &err);
 
-int lax_wendroff_3d(std::vector<double> &c, std::vector<cell> &c_vol, 
-       std::vector<cell> &q, std::vector<double> &phi, std::vector<int> &wells);
+int lax_wendroff_3d(
+        std::vector<double> &c, 
+        std::vector<cell> &c_vol, 
+        std::vector<double> &p,
+        std::vector<double> &K,
+        std::vector<double> &phi,
+        std::vector<int> &wells
+        );
 
 int print_cell(cell &elem);
 
