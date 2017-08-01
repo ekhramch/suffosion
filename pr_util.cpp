@@ -849,201 +849,20 @@ std::vector<int> get_index(
     return tmp;
 }
 
-int get_flow_face(std::vector<double> &p, std::vector<double> &K, 
-        std::vector<double> &face, int idx, char dir)
+int get_flow(std::vector<double> &q, std::vector<double> &p,
+        std::vector<double> &K)
 {
-    double p_1, p_2, K_1, K_2;
-//    double undim = lame_2 * time_un/length;
-
-    int k = idx / (n_x*n_y);
-    int tmp_loc = idx - k*n_x*n_y;
-    int j = tmp_loc/n_x;
-    int i = tmp_loc - j*n_x;
-
-    int axis_1, axis_2, axis_3;
-    int lim_1, lim_2, lim_3;
-    int step_1, step_2, step_3;
-
-    switch (dir)
-    {
-        case 'x':
-            axis_1 = k;
-            lim_1 = n_z;
-            step_1 = h_k;
-
-            axis_2 = j;
-            lim_2 = n_y;
-            step_2 = h_j;
-
-            axis_3 = i;
-            lim_3 = n_x;
-            step_3 = h_i;
-
-            break;
-
-
-        case 'y':
-            axis_1 = k;
-            lim_1 = n_z;
-            step_1 = h_k;
-
-            axis_2 = i;
-            lim_2 = n_x;
-            step_2 = h_i;
-
-            axis_3 = j;
-            lim_3 = n_y;
-            step_3 = h_j;
-
-            break;
-
-
-        case 'z':
-            axis_1 = j;
-            lim_1 = n_y;
-            step_1 = h_j;
-
-            axis_2 = i;
-            lim_2 = n_x;
-            step_2 = h_i;
-
-            axis_3 = k;
-            lim_3 = n_z;
-            step_3 = h_k;
-
-            break;
-
-        default:
-            std::cout << "oops" << std::endl;
-            return 1;   
-    }
-
-    //up
-    if( axis_1 < lim_1 - 2 )
-    {
-        p_1 = face_center(p, idx, step_2, step_1);
-        p_2 = face_center(p, idx + step_1, step_2, step_1);
-        K_1 = face_center(K, idx, step_2, step_1);
-        K_2 = face_center(K, idx + step_1, step_2, step_1);
-        face[0] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        face[0] = 0.;
-
-
-    //right
-    if( axis_2 < lim_2 - 2 )
-    {
-        p_1 = face_center(p, idx, step_2, step_1);
-        p_2 = face_center(p, idx + step_2, step_2, step_1);
-        K_1 = face_center(K, idx, step_2, step_1);
-        K_2 = face_center(K, idx + step_2, step_2, step_1);
-        face[1] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        face[1] = 0.;
-
-    //down
-    if(axis_1 > 0)
-    {
-        p_2 = face_center(p, idx, step_2, step_1);
-        p_1 = face_center(p, idx - step_1, step_2, step_1);
-        K_1 = face_center(K, idx, step_2, step_1);
-        K_2 = face_center(K, idx - step_1, step_2, step_1);
-        face[2] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        face[2] = 0.;
-
-    //left
-    if(axis_2 > 0)
-    {
-        p_2 = face_center(p, idx, step_2, step_1);
-        p_1 = face_center(p, idx - step_2, step_2, step_1);
-        K_1 = face_center(K, idx, step_2, step_1);
-        K_2 = face_center(K, idx - step_2, step_2, step_1);
-        face[3] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        face[3] = 0.;
-
-    //center
-    if ((axis_3 < lim_3 - 1) && (axis_3 > 0) )
-    {
-        p_2 = cell_center(p, idx);
-        p_1 = cell_center(p, idx - step_3);
-        K_1 = cell_center(K, idx);
-        K_2 = cell_center(K, idx - step_3);
-        face[4] = -undim * (K_1 + K_2) * (p_2 - p_1) / (2. * h);
-    }
-    else
-        face[4] = 0.;
-
-    return 0;
-}
-
-cell get_flow_cell(std::vector<double> &p, std::vector<double> &K, int idx)
-{
-    cell elem;
-    //i
-    get_flow_face(p, K, elem.x_left, idx, 'x');
-
-    //i+1
-    get_flow_face(p, K, elem.x_right, idx + h_i, 'x');
-
-    //j
-    get_flow_face(p, K, elem.y_left, idx, 'y');
-
-    //j+1
-    get_flow_face(p, K, elem.y_right, idx + h_j, 'y');
-
-    //k
-    get_flow_face(p, K, elem.z_left, idx, 'z');
-
-   //k+1
-    get_flow_face(p, K, elem.z_right, idx + h_k, 'z');
-
-    return elem;
-}
-
-int check_flows(std::vector<cell> &q, std::vector<double> &err)
-{
+    double qx, qy, qz;
     for(auto k = 1; k < n_z - 1; ++k)
         for(auto j = 1; j < n_y - 1; ++j)
             for(auto i = 1; i < n_x - 1; ++i)
             {
-                auto index = get_idx(i, j , k);
-
-                err[index] = fabs(q[index].x_left[0]) - fabs(q[index + h_k].x_left[2]);
-                err[index] += fabs(q[index].x_left[1]) - fabs(q[index + h_j].x_left[3]);
-                err[index] += fabs(q[index].x_right[4]) - fabs(q[index + h_i].x_left[4]);
-
-                err[index] += fabs(q[index].y_left[0]) - fabs(q[index + h_k].y_left[2]);
-                err[index] += fabs(q[index].y_left[1]) - fabs(q[index + h_i].y_left[3]);
-                err[index] += fabs(q[index].y_right[4]) - fabs(q[index + h_j].y_left[4]);
-
-                err[index] += fabs(q[index].z_left[0]) - fabs(q[index + h_j].z_left[2]);
-                err[index] += fabs(q[index].z_left[1]) - fabs(q[index + h_i].z_left[3]);
-                err[index] += fabs(q[index].z_right[4]) - fabs(q[index + h_k].z_left[4]);
+                auto idx = get_idx(i, j , k);   
+                qx = undim * K[idx] * (p[idx + h_i] - p[idx - h_i]);
+                qy = undim * K[idx] * (p[idx + h_j] - p[idx - h_j]);
+                qx = undim * K[idx] * (p[idx + h_k] - p[idx - h_k]);
+                q[idx] = sqrt(qx*qx + qy*qy + qz*qz);
             }
-    return 0;
-}
-
-int get_flow(std::vector<cell> &q, std::vector<double> &p,
-        std::vector<double> &K, std::vector<double> &err)
-{
-    /*auto index = get_index(0, n_x - 1, 0,  n_y - 1, 0, n_z - 1);
-
-    for(auto idx = index.begin(); idx < index.end(); ++idx)*/
-    for(auto k = 0; k < n_z - 1; ++k)
-        for(auto j = 0; j < n_y - 1; ++j)
-            for(auto i = 0; i < n_x - 1; ++i)
-            {
-                auto idx = get_idx(i, j , k);                  
-                q[idx] = get_flow_cell(p, K, idx);
-            }
-
-    check_flows(q, err);
 
     return 0;    
 }
@@ -1186,16 +1005,13 @@ int get_c_flux(std::vector<cell> &c_vol,
             for(auto i = 1; i < n_x - 1; ++i)
             {
                 auto idx = get_idx(i, j, k);
-                /*K_tmp = edge_center(K, idx, d3);
-                phi_tmp = edge_center(phi, idx, d3);
-                p_tmp = edge_center(p, idx, d3);*/
 
                 tmp = c_vol[idx].center 
                     + c_vol[idx - d1].center 
                     + c_vol[idx - d2].center
                     + c_vol[idx - d1 - d2].center;
 
-                flux[idx] = 0.25 * tmp;// * K_tmp * p_tmp * undim / phi_tmp;
+                flux[idx] = 0.25 * tmp;
             }
 
     return 0;
@@ -1207,7 +1023,8 @@ int lax_wendroff_3d(
         std::vector<double> &p,
         std::vector<double> &K,
         std::vector<double> &phi,
-        std::vector<int> &wells
+        std::vector<int> &wells,
+        std::vector<double> &q
         )
 {
     double tmp;
@@ -1217,7 +1034,6 @@ int lax_wendroff_3d(
     double tmp_x, tmp_y, tmp_z;
     double p_tmp;
     double source;
-    std::vector<double> q_mod(n, 0.);
 
     get_c_vol(c_vol, c, p, K, phi);
     
@@ -1245,13 +1061,18 @@ int lax_wendroff_3d(
                 if(!is_well(idx, wells))
                 {
                     c[idx] += tmp;
-/*                    if(q_mod[idx] / phi[idx] >= q_0)
-                        source = beta * c[idx] - alfa * (q_mod[idx] / phi[idx] - q_0);
+
+                    /*if(q[idx] / phi[idx] >= q_0)
+                        source = beta * c[idx] - alfa * (q[idx] / phi[idx] - q_0);
                     else
                         source = beta * c[idx];
-                    c[idx] -= h_t * source;
+                    c[idx] -= h_t * source;*/
+
                     if((c[idx]) < 1e-9)
-                        c[idx] = 0.;*/
+                        c[idx] = 0.;
+
+                    if(c[idx] > 1.)
+                        c[idx] = 1.;
                 }
                 else
                     c[idx] = 0.1;
@@ -1259,44 +1080,3 @@ int lax_wendroff_3d(
 
     return 0;
 }
-
-int print_face(std::vector<double> face)
-{
-    std::cout << "Up: " << face[0] << std::endl;
-    std::cout << "Right: " << face[1] << std::endl;
-    std::cout << "Down: " << face[2] << std::endl;
-    std::cout << "Left: " << face[3] << std::endl;
-    std::cout << "Center: " << face[4] << std::endl;
-
-    return 0;
-}
-
-int print_cell(cell &elem)
-{
-    std::cout << "x-left(i): "; 
-    print_face(elem.x_left);
-    std::cout<< std::endl; 
-
-    std::cout << "x-right(i+1): ";
-    print_face(elem.x_right);
-    std::cout << std::endl; 
-
-    std::cout << "y-left(j): ";
-    print_face(elem.y_left);
-    std::cout << std::endl;    
-
-    std::cout << "y-right(j+1): ";
-    print_face(elem.y_right);
-    std::cout << std::endl;  
-
-    std::cout << "z-left(k): ";
-    print_face(elem.z_left);
-    std::cout << std::endl;    
-
-    std::cout << "z-right(k+1): ";
-    print_face(elem.z_right);
-    std::cout << std::endl;
-
-    std::cout << "Middle of the cell: " << elem.center << std::endl;
-}
-

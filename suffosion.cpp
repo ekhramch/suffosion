@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
     //Vectors of variables
     std::vector<double> pressure(n, p_top);
-    std::vector<cell> flow(n); //velocities, x,y,z components
+    std::vector<double> flow(n); //velocities, x,y,z components
     std::vector<cell> c_vol(n); //volume concentration
     std::vector<double> source(n, 0.);//source of solid phase
     std::vector<double> concentration(n, c_0); 
@@ -96,14 +96,12 @@ int main(int argc, char *argv[])
     amgcl::backend::clear(x_u);
     std::string filename;
 
-    std::vector<double> temp_val(n, 0.); 
-
     std::map<std::string, double*> save_data = 
     {
         {"pressure", pressure.data()},
         {"dilatation", dilatation.data()},
         {"porosity", porosity.data()},
-        {"temp", temp_val.data()},
+        {"flow", flow.data()},
         {"permeability", permeability.data()},
         {"dil_dt", dil_dt.data()},
         {"concentration", concentration.data()},
@@ -240,76 +238,14 @@ int main(int argc, char *argv[])
         }
     }
 
+    get_flow(flow, pressure, permeability);
+
     for(auto index = 0; index < n; ++index)
         if(is_well(index, wells))
             concentration[index] = 0.1;
 
-    std::vector<double> x_flow_left(n, 0.);
-    std::vector<double> x_flow_right(n, 0.);
-    std::vector<double> y_flow_left(n, 0.);
-    std::vector<double> y_flow_right(n, 0.);
-    std::vector<double> z_flow_left(n, 0.);
-    std::vector<double> z_flow_right(n, 0.);
-    std::vector<double> errors(n, 0.);
-
-    get_flow(flow, pressure, permeability, errors);
-
-    for(auto i = 0; i < n; ++i)
-    {
-        x_flow_left[i]  = flow[i].x_left[4] 
-            + flow[i].y_right[3]
-            + flow[i].y_left[3]
-            + flow[i].z_right[3]
-            + flow[i].z_left[3];
-
-        x_flow_right[i] = flow[i].x_right[4] 
-            + flow[i].y_right[1]
-            + flow[i].y_left[1]
-            + flow[i].z_right[1]
-            + flow[i].z_left[1];
-
-        y_flow_left[i]  = flow[i].y_left[4] 
-            + flow[i].x_right[3]
-            + flow[i].x_left[3]
-            + flow[i].z_right[2]
-            + flow[i].z_left[2];
-
-        y_flow_right[i] = flow[i].y_right[4] 
-            + flow[i].x_right[1]
-            + flow[i].x_left[1]
-            + flow[i].z_right[0]
-            + flow[i].z_left[0];
-
-        z_flow_left[i]  = flow[i].z_left[4] 
-            + flow[i].x_right[2]
-            + flow[i].x_left[2]
-            + flow[i].y_right[2]
-            + flow[i].y_left[2];
-
-        z_flow_right[i] = flow[i].z_right[4]
-            + flow[i].x_right[0]
-            + flow[i].x_left[0]
-            + flow[i].y_right[0]
-            + flow[i].y_left[0];
-    }
-
-    std::map<std::string, double*> save_flows = 
-    {
-        {"x_left", x_flow_left.data()},
-        {"x_right", x_flow_right.data()},
-        {"y_left", y_flow_left.data()},
-        {"y_right",y_flow_right.data()},
-        {"z_left", z_flow_left.data()},
-        {"z_right", z_flow_right.data()},
-        {"errors", errors.data()},
-    };
-    saver flow_saver("flows", n_x, n_y, n_z, h);
-    flow_saver.add_step(0, save_flows);
-
-
     for(auto t = 0; t < duration; ++t)
-        lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells);
-
+        lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells, flow);
 
     data_saver.add_step(0, save_data);
 
