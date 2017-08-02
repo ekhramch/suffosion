@@ -975,9 +975,9 @@ int get_c_vol(
         std::vector<double> &phi
         )
 {
-    for(auto k = 1; k < n_z - 2; ++k)
-        for(auto j = 1; j < n_y - 2; ++j)
-            for(auto i = 1; i < n_x - 2; ++i)
+    for(auto k = 1; k < n_z - 1; ++k)
+        for(auto j = 1; j < n_y - 1; ++j)
+            for(auto i = 1; i < n_x - 1; ++i)
             {
                 auto idx = get_idx(i, j, k);
 
