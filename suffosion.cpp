@@ -96,6 +96,10 @@ int main(int argc, char *argv[])
     amgcl::backend::clear(x_u);
     std::string filename;
 
+    for(auto index = 0; index < n; ++index)
+        if(is_well(index, wells))
+            concentration[index] = 0.1;
+
     std::map<std::string, double*> save_data = 
     {
         {"pressure", pressure.data()},
@@ -221,8 +225,6 @@ int main(int argc, char *argv[])
         //dilatation
         dil_calc(disp, dilatation, dil_dt, wells);
 
-        //velocity
-
         //concentration
 
         //porosity&source
@@ -240,14 +242,19 @@ int main(int argc, char *argv[])
 
     get_flow(flow, pressure, permeability);
 
-    for(auto index = 0; index < n; ++index)
-        if(is_well(index, wells))
-            concentration[index] = 0.1;
-
     for(auto t = 0; t < duration; ++t)
+    {
         lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells, flow);
 
-    data_saver.add_step(0, save_data);
+        if( (writer_step++) == 100 || t == duration - 1 )
+        {
+            data_saver.add_step(t*h_t, save_data);
+
+            writer_step = 0;
+        }
+    }
+
+    //data_saver.add_step(0, save_data);
 
     prof.toc("time cycle");
 

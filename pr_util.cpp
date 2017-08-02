@@ -215,10 +215,13 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
 
         if(border_flag[0] != 0)
         {
-            if(border_flag[0] == 'w')
+            /*if(border_flag[0] == 'w')
                 i_f = 2. * get_pr_coef(index, index + h_i, permeability, wells);
             else
-                i_b = 2. * get_pr_coef(index, index - h_i, permeability, wells);
+                i_b = 2. * get_pr_coef(index, index - h_i, permeability, wells);*/
+            rhs[index] = p_top;
+            cntr = 1.;
+            k_f = k_b = j_f = j_b = i_b = i_f = 0.;
         }
         else
         {
@@ -228,10 +231,14 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
 
         if(border_flag[1] != 0)
         {
-            if(border_flag[1] == 's')
+            /*if(border_flag[1] == 's')
                 j_f = 2. * get_pr_coef(index, index + h_j, permeability, wells);
             else
-                j_b = 2. * get_pr_coef(index, index - h_j, permeability, wells);
+                j_b = 2. * get_pr_coef(index, index - h_j, permeability, wells);*/            
+            rhs[index] = p_top;
+            cntr = 1.;
+            k_f = k_b = j_f = j_b = i_b = i_f = 0.;
+
         }
         else
         {
@@ -241,9 +248,13 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
 
         if(border_flag[2] != 0)
         {
-            rhs[index] = p_top;
+            if(border_flag[2] == 'b')
+                k_f = 2. * get_pr_coef(index, index + h_k, permeability, wells);
+            else
+                k_b = 2. * get_pr_coef(index, index - h_k, permeability, wells);
+            /*rhs[index] = p_top;
             cntr = 1.;
-            k_f = k_b = j_f = j_b = i_b = i_f = 0.;
+            k_f = k_b = j_f = j_b = i_b = i_f = 0.;*/
         }
         else
         {
