@@ -96,10 +96,6 @@ int main(int argc, char *argv[])
     amgcl::backend::clear(x_u);
     std::string filename;
 
-    for(auto index = 0; index < n; ++index)
-        if(is_well(index, wells))
-            concentration[index] = 0.1;
-
     std::map<std::string, double*> save_data = 
     {
         {"pressure", pressure.data()},
@@ -241,6 +237,9 @@ int main(int argc, char *argv[])
     }
 
     get_flow(flow, pressure, permeability);
+        
+    for(auto index = 0; index < n; ++index)
+        source[index] = flow[index]/porosity[index] - q_0;
 
     for(auto t = 0; t < duration; ++t)
     {

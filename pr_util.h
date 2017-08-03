@@ -28,16 +28,16 @@ const double undim = lame_2 * time_un / length;
 const double eta = 1e-3; // dynamic viscosity, Pa*s
 const double ro_g = 1e3*9.81*length; // density of water * grav acceleration(Earth), undimensioned
 const double ro_s = 1.; // density of the solid phase, kg/m^3
-const double alfa = 1.; // parameter of the process, kg/m^4
-const double beta = 0.1; // parameter of the process, 1/sec
+const double alfa = 5.*1e-1; // parameter of the process, kg/m^4
+const double beta = 5.*1e-2; // parameter of the process, 1/sec
 const double gamma_1 = 0.1; // parameter, m^2/s
 const double d = 1e-4; // diameter of the particles, m
 const double T = 10.; //tortuosity
 
 const double k_0 = 1e-12 / eta; // initial permeability, m^2=1darci
-const double q_0 = 1.16*1e-5; // initial speed, 1 m per day in m/sec
+const double q_0 = 1.16*1e-2; // initial speed, 1 m per day in m/sec
 const double fi_0 = 0.55; // initial porosity
-const double c_0 = 0.; // initial concentration, kg/m^3
+const double c_0 = 0.1; // initial concentration, kg/m^3
 
 const double p_top = (0.1*1e6 + 0.1*1e6*depth/10.) / lame_2; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 
 const double p_bot = p_top; //minus hydrostatic

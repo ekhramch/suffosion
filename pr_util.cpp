@@ -863,7 +863,7 @@ std::vector<int> get_index(
 int get_flow(std::vector<double> &q, std::vector<double> &p,
         std::vector<double> &K)
 {
-    double qx, qy, qz;
+    double qx=0., qy=0., qz=0.;
     for(auto k = 1; k < n_z - 1; ++k)
         for(auto j = 1; j < n_y - 1; ++j)
             for(auto i = 1; i < n_x - 1; ++i)
@@ -871,7 +871,7 @@ int get_flow(std::vector<double> &q, std::vector<double> &p,
                 auto idx = get_idx(i, j , k);   
                 qx = undim * K[idx] * (p[idx + h_i] - p[idx - h_i]);
                 qy = undim * K[idx] * (p[idx + h_j] - p[idx - h_j]);
-                qx = undim * K[idx] * (p[idx + h_k] - p[idx - h_k]);
+                qz = undim * K[idx] * (p[idx + h_k] - p[idx - h_k]);
                 q[idx] = sqrt(qx*qx + qy*qy + qz*qz);
             }
 
@@ -1073,11 +1073,11 @@ int lax_wendroff_3d(
                 {
                     c[idx] += tmp;
 
-                    /*if(q[idx] / phi[idx] >= q_0)
+                    if(q[idx] / phi[idx] >= q_0)
                         source = beta * c[idx] - alfa * (q[idx] / phi[idx] - q_0);
                     else
                         source = beta * c[idx];
-                    c[idx] -= h_t * source;*/
+                    c[idx] -= h_t * source;
 
                     if((c[idx]) < 1e-9)
                         c[idx] = 0.;
@@ -1086,7 +1086,7 @@ int lax_wendroff_3d(
                         c[idx] = 1.;
                 }
                 else
-                    c[idx] = 0.1;
+                    c[idx] = 0.;
             }
 
     return 0;
