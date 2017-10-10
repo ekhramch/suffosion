@@ -220,30 +220,21 @@ int main(int argc, char *argv[])
 
         //dilatation
         dil_calc(disp, dilatation, dil_dt, wells);
-
-        //concentration
-
-        //porosity&source
-
-        //permeability
-
-        //write results
-        if( (writer_step++) == 100 || t == duration - 1 )
-        {
-            data_saver.add_step(t*h_t, save_data);
-
-            writer_step = 0;
-        }
     }
 
     get_flow(flow, pressure, permeability);
-        
-    for(auto index = 0; index < n; ++index)
-        source[index] = flow[index]/porosity[index] - q_0;
 
     for(auto t = 0; t < duration; ++t)
     {
-        lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells, flow);
+        lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells, flow, source);
+
+        get_source(flow, porosity, source, concentration, wells);
+
+        get_phi(dil_dt, porosity, source, wells);
+
+        get_K(porosity, permeability, wells);
+
+        get_flow(flow, pressure, permeability);
 
         if( (writer_step++) == 100 || t == duration - 1 )
         {
@@ -252,8 +243,6 @@ int main(int argc, char *argv[])
             writer_step = 0;
         }
     }
-
-    //data_saver.add_step(0, save_data);
 
     prof.toc("time cycle");
 

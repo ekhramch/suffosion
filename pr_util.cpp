@@ -324,7 +324,7 @@ double get_pr_coef(int index_1, int index_2, vector<double> &permeability,
 
     double perm = ( permeability[index_1] + permeability[index_2] ) / 2.;
 
-    double tmp = perm * time_un / (length * length); 
+    double tmp = perm * time_un * lame_2 / (length * length);
  
     int dx = i_2 - i_1;
     int dy = j_2 - j_1;
@@ -1035,7 +1035,8 @@ int lax_wendroff_3d(
         std::vector<double> &K,
         std::vector<double> &phi,
         std::vector<int> &wells,
-        std::vector<double> &q
+        std::vector<double> &q,
+        std::vector<double> &source
         )
 {
     double tmp;
@@ -1044,7 +1045,6 @@ int lax_wendroff_3d(
     std::vector<double> V(n, 0.);
     double tmp_x, tmp_y, tmp_z;
     double p_tmp;
-    double source;
 
     get_c_vol(c_vol, c, p, K, phi);
     
@@ -1073,11 +1073,12 @@ int lax_wendroff_3d(
                 {
                     c[idx] += tmp;
 
-                    if(q[idx] / phi[idx] >= q_0)
-                        source = beta * c[idx] - alfa * (q[idx] / phi[idx] - q_0);
+                    if (q[idx] / phi[idx] >= q_0)
+                        source[idx] = beta * c[idx] - alfa * (q[idx] / phi[idx] - q_0);
                     else
-                        source = beta * c[idx];
-                    c[idx] -= h_t * source;
+                        source[idx] = beta * c[idx];
+
+                    c[idx] -= h_t * source[idx];
 
                     if((c[idx]) < 1e-9)
                         c[idx] = 0.;
@@ -1088,6 +1089,64 @@ int lax_wendroff_3d(
                 else
                     c[idx] = 0.;
             }
+
+    return 0;
+}
+
+int get_source(std::vector<double> &q,
+               std::vector<double> &phi,
+               std::vector<double> &source,
+               std::vector<double> &c,
+               std::vector<int> &wells)
+{
+    for(auto idx = 0; idx < n; ++idx)
+    {
+        if(!is_well(idx, wells))
+        {
+            if (q[idx] / phi[idx] >= q_0)
+                source[idx] = beta * c[idx] - alfa * (q[idx] / phi[idx] - q_0);
+            else
+                source[idx] = beta * c[idx];
+
+        }
+        else
+            source[idx] = 0.;
+    }
+
+    return 0;
+}
+
+int get_phi(std::vector<double> &dil_dt, std::vector<double> &phi, std::vector<double> &source, std::vector<int> &wells)
+{
+    for(auto idx = 0; idx < n; ++idx)
+    {
+        if (!is_well(idx, wells))
+        {
+            phi[idx] += h_t * ( (1. - phi[idx]) * dil_dt[idx] - source[idx] );
+
+            if (phi[idx] < 0.)
+                phi[idx] = 0.;
+
+            if (phi[idx] > 0.8)
+                phi[idx] = 0.8;
+        }
+        else
+            phi[idx] = 0.;
+    }
+
+    return 0;
+}
+
+int get_K(std::vector<double> &phi, std::vector<double> &K, std::vector<int> &wells)
+{
+    double  tmp;
+    for(int idx = 0; idx < n; ++idx)
+        if( !(is_well(idx, wells)) )
+        {
+            tmp = phi[idx] * phi[idx] * phi[idx] / ( ( 1. - phi[idx] ) * ( 1. - phi[idx] ) );
+            tmp *= ( koz_car_coef * grain_size * grain_size / eta );
+            K[idx] = tmp;
+        }
 
     return 0;
 }

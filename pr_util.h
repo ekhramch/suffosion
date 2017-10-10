@@ -24,7 +24,7 @@ const double nu = 0.35; // Poisson's ratio, non-dim
 const double lame_1 = E * nu / ( (1. - 2.*nu) * (1. + nu) ); // Lame first parameter(lambda), Pa
 const double lame_2 = E / ( 2.*(1. + nu) ); // Lame second parameter(G), Pa
 
-const double undim = lame_2 * time_un / length;
+const double undim = lame_2 * time_un / ( length );
 const double eta = 1e-3; // dynamic viscosity, Pa*s
 const double ro_g = 1e3*9.81*length; // density of water * grav acceleration(Earth), undimensioned
 const double ro_s = 1.; // density of the solid phase, kg/m^3
@@ -34,10 +34,12 @@ const double gamma_1 = 0.1; // parameter, m^2/s
 const double d = 1e-4; // diameter of the particles, m
 const double T = 10.; //tortuosity
 
-const double k_0 = 1e-12 / eta; // initial permeability, m^2=1darci
-const double q_0 = 1.16*1e-2; // initial speed, 1 m per day in m/sec
-const double fi_0 = 0.55; // initial porosity
-const double c_0 = 0.1; // initial concentration, kg/m^3
+const double grain_size = 0.05; //very fine sand
+const double koz_car_coef = 0.8 * 1e6 * 1e-12 * 1e-3; //alpha (mdarcy/mm^2) from wiki * mm^2 to m^2 * mdarcy to darcy
+const double fi_0 = 0.5; // initial porosity
+const double k_0 = (grain_size * grain_size * fi_0 * koz_car_coef)  / eta; // initial permeability, 0.5^3/(1.-0.5)^2=0.5
+const double q_0 = 2.5*1e-2; // velocity of tearoff
+const double c_0 = 0.; // initial concentration, kg/m^3
 
 const double p_top = (0.1*1e6 + 0.1*1e6*depth/10.) / lame_2; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 
 const double p_bot = p_top; //minus hydrostatic
@@ -125,12 +127,29 @@ int lax_wendroff_3d(
         std::vector<double> &K,
         std::vector<double> &phi,
         std::vector<int> &wells,
-        std::vector<double> &q
+        std::vector<double> &q,
+        std::vector<double> &source
         );
 
 int print_cell(cell &elem);
 
 int get_flow(std::vector<double> &q, 
-        std::vector<double> &p,
-        std::vector<double> &K);
+             std::vector<double> &p,
+             std::vector<double> &K);
+
+int get_source(std::vector<double> &q,
+               std::vector<double> &phi,
+               std::vector<double> &source,
+               std::vector<double> &c,
+               std::vector<int> &wells);
+
+
+int get_phi(std::vector<double> &dil_dt,
+            std::vector<double> &phi,
+            std::vector<double> &source,
+            std::vector<int> &wells);
+
+
+int get_K(std::vector<double> &phi, std::vector<double> &K, std::vector<int> &wells);
+
 #endif
