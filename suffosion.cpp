@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
     std::vector<double> u_x(n, 0.), u_y(n, 0.), u_z(n, 0.); //displacements
     std::vector<double> dilatation(n, 0.); 
     std::vector<double> dil_dt(n, 0.); //dilatation time derivative
+    std::vector<double> dil_dt_mock(n, 0.); //dilatation time derivative
     std::vector<double> porosity(n, fi_0);
     std::vector<double> por_dt(n, 0.); //porosity time derivative
     std::vector<int> wells; //coordinates of wells
@@ -114,7 +115,7 @@ int main(int argc, char *argv[])
 
     //other variables
     const auto duration = ( (argc > 1) ? std::stoul( argv[1] ) : 1 ); 
-    int writer_step = 99;
+    int writer_step = 0;
 
     add_well(n_x/2, n_y/2, wells);
 
@@ -192,14 +193,25 @@ int main(int argc, char *argv[])
     std::cout << "error U = " << error << std::endl;
 
     dil_calc(disp, dilatation, dil_dt, wells);
-    std::fill(dil_dt.begin(), dil_dt.end(), 0.);
+    //std::fill(dil_dt.begin(), dil_dt.end(), 0.);
+
+    get_flow(flow, pressure, permeability);
 
     prof.tic("time cycle");
-    for(auto t = 0; t < 0; ++t)
+    for(auto t = 0; t < duration; ++t)
     {
+        lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells, flow, source);
+
+        get_source(flow, porosity, source, concentration, wells);
+
+        get_phi(dil_dt_mock, porosity, source, wells);
+
+        get_K(porosity, permeability, wells);
+
+        get_flow(flow, pressure, permeability);
+
         //pressure
-        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells,
-                source, dil_dt);
+        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells, source, dil_dt_mock);
         vex::copy(rhs_pr, rhs_dev_pr);
         PSolver solve_press(boost::tie(n, ptr_pr, col_pr, val_pr));
         solve_press(rhs_dev_pr, x_pr);
@@ -220,30 +232,14 @@ int main(int argc, char *argv[])
 
         //dilatation
         dil_calc(disp, dilatation, dil_dt, wells);
-    }
 
-    get_flow(flow, pressure, permeability);
-
-    for(auto t = 0; t < duration; ++t)
-    {
-        lax_wendroff_3d(concentration, c_vol, pressure, permeability, porosity, wells, flow, source);
-
-        get_source(flow, porosity, source, concentration, wells);
-
-        get_phi(dil_dt, porosity, source, wells);
-
-        get_K(porosity, permeability, wells);
-
-        get_flow(flow, pressure, permeability);
-
-        if( (writer_step++) == 100 || t == duration - 1 )
+        if( (writer_step++) == 50 || t == duration - 1 || t == 0 )
         {
             data_saver.add_step(t*h_t, save_data);
 
             writer_step = 0;
         }
     }
-
     prof.toc("time cycle");
 
     std::cout << prof;

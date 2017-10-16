@@ -38,7 +38,7 @@ const double grain_size = 0.05; //very fine sand
 const double koz_car_coef = 0.8 * 1e6 * 1e-12 * 1e-3; //alpha (mdarcy/mm^2) from wiki * mm^2 to m^2 * mdarcy to darcy
 const double fi_0 = 0.5; // initial porosity
 const double k_0 = (grain_size * grain_size * fi_0 * koz_car_coef)  / eta; // initial permeability, 0.5^3/(1.-0.5)^2=0.5
-const double q_0 = 2.5*1e-2; // velocity of tearoff
+const double q_0 = 3*1e-2; // velocity of tearoff
 const double c_0 = 0.; // initial concentration, kg/m^3
 
 const double p_top = (0.1*1e6 + 0.1*1e6*depth/10.) / lame_2; // initial pressure upper: atmospheric + 0.1 MPa for 10 m 

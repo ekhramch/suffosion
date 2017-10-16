@@ -207,7 +207,7 @@ int build_press_mat(vector<int> &col, vector<double> &val, vector<int> &ptr,
 
     for(int index = 0; index < n; ++index)
     {
-        rhs[index] = h * h * (time_un * source[index] - dil_dt[index]);
+        rhs[index] = h * h * (source[index] - dil_dt[index]);
 
         cntr = k_f = k_b = j_f = j_b = i_b = i_f = 0.;
 
@@ -653,19 +653,19 @@ int fill_disp_rhs(vector<double> &pressure,
                 tmp = (pressure[index] - pressure[index - h_i]);
             else
                 tmp = (pressure[index + h_i] - pressure[index]);
-            rhs[3*index + 0] = -h * tmp * length;
+            rhs[3*index + 0] = -h * tmp;
 
             if(pressure[index] < pressure[index - h_j])
                 tmp = (pressure[index] - pressure[index - h_j]);
             else
                 tmp = (pressure[index + h_j] - pressure[index]);
-            rhs[3*index + 1] = -h * tmp * length;
+            rhs[3*index + 1] = -h * tmp;
 
             if(pressure[index] < pressure[index - h_k])
                 tmp = (pressure[index] - pressure[index - h_k]);
             else
                 tmp = (pressure[index + h_k] - pressure[index]);               
-            rhs[3*index + 2] = -h * tmp * length;
+            rhs[3*index + 2] = -h * tmp;
 
         }
         else
@@ -696,7 +696,7 @@ int dil_calc(vector<double> &disp, vector<double> &dilatation,
 
             tmp /= (2. * h);
 
-            dil_dt[index] = ( tmp - dilatation[index] ) / h_t;
+            dil_dt[index] = ( tmp - dilatation[index] ) / (h_t * time_un);
 
             dilatation[index] = tmp;
         }
