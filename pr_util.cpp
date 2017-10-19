@@ -1074,9 +1074,10 @@ int lax_wendroff_3d(
                     c[idx] += tmp;
 
                     if (q[idx] / phi[idx] >= q_0)
-                        source[idx] = beta * c[idx] - alfa * (q[idx] / phi[idx] - q_0);
+                        source[idx] = beta * c[idx] * q[idx] * ( 1. + b * (phi[idx] - fi_1) )
+                                      - alfa * (q[idx] / phi[idx] - q_0) * (phi[idx] - fi_1);
                     else
-                        source[idx] = beta * c[idx];
+                        source[idx] = beta * c[idx] * q[idx] * ( 1. + b * (phi[idx] - fi_1) );
 
                     c[idx] -= h_t * source[idx];
 
@@ -1104,10 +1105,10 @@ int get_source(std::vector<double> &q,
         if(!is_well(idx, wells))
         {
             if (q[idx] / phi[idx] >= q_0)
-                source[idx] = beta * c[idx] - alfa * (q[idx] / phi[idx] - q_0);
+                source[idx] = beta * c[idx] * q[idx] * ( 1. + b * (phi[idx] - fi_1) )
+                              - alfa * (q[idx] / phi[idx] - q_0) * (phi[idx] - fi_1);
             else
-                source[idx] = beta * c[idx];
-
+                source[idx] = beta * c[idx] * q[idx] * ( 1. + b * (phi[idx] - fi_1) );
         }
         else
             source[idx] = 0.;

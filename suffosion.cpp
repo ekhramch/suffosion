@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     std::vector<double> u_x(n, 0.), u_y(n, 0.), u_z(n, 0.); //displacements
     std::vector<double> dilatation(n, 0.); 
     std::vector<double> dil_dt(n, 0.); //dilatation time derivative
-    std::vector<double> dil_dt_mock(n, 0.); //dilatation time derivative
+    //std::vector<double> dil_dt_mock(n, 0.); //dilatation time derivative
     std::vector<double> porosity(n, fi_0);
     std::vector<double> por_dt(n, 0.); //porosity time derivative
     std::vector<int> wells; //coordinates of wells
@@ -204,14 +204,14 @@ int main(int argc, char *argv[])
 
         get_source(flow, porosity, source, concentration, wells);
 
-        get_phi(dil_dt_mock, porosity, source, wells);
+        get_phi(dil_dt, porosity, source, wells);
 
         get_K(porosity, permeability, wells);
 
         get_flow(flow, pressure, permeability);
 
         //pressure
-        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells, source, dil_dt_mock);
+        build_press_mat(col_pr, val_pr, ptr_pr, rhs_pr, permeability, wells, source, dil_dt);
         vex::copy(rhs_pr, rhs_dev_pr);
         PSolver solve_press(boost::tie(n, ptr_pr, col_pr, val_pr));
         solve_press(rhs_dev_pr, x_pr);
@@ -232,6 +232,9 @@ int main(int argc, char *argv[])
 
         //dilatation
         dil_calc(disp, dilatation, dil_dt, wells);
+
+        if(t < 10)
+            std::fill(dil_dt.begin(), dil_dt.end(), 0.);
 
         if( (writer_step++) == 50 || t == duration - 1 || t == 0 )
         {
