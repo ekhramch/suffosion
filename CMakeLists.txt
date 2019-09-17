@@ -13,8 +13,12 @@ find_package(VexCL)
 # add the executable
 vexcl_add_executables(suffosion 
     suffosion.cpp
-    pr_util.cpp
+    utils.cpp
+    parameters.cpp
     saver.cpp
+    pressure.cpp
+    stress.cpp
+    chemistry.cpp
     )
 
 target_link_libraries(
